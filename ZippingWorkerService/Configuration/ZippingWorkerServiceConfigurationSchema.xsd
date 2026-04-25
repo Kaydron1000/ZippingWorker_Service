@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="ZippingWorkerServiceConfigurationSchema"
+    targetNamespace="http://tempuri.org/ZippingWorkerServiceConfigurationSchema.xsd"
+    elementFormDefault="unqualified"
+    xmlns="http://tempuri.org/ZippingWorkerServiceConfigurationSchema.xsd"
+    xmlns:mstns="http://tempuri.org/ZippingWorkerServiceConfigurationSchema.xsd"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+>
+
+	<xs:simpleType name="ArchiverEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="sevenzip" />
+			<xs:enumeration value="dotnetzip" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="CompressionLevelEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="nocompression" />
+			<xs:enumeration value="fastest" />
+			<xs:enumeration value="fast" />
+			<xs:enumeration value="normal" />
+			<xs:enumeration value="maximum" />
+			<xs:enumeration value="ultra" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:complexType name="ZippingWorkerServiceConfigurationType">
+		<xs:attribute name="serviceport"			type="xs:int"					default="5000"					use="optional"/>
+		<xs:attribute name="sevenzipexepath"		type="xs:string"				default="7z.exe"				use="optional"/>
+		<xs:attribute name="tempdir_symlink"		type="xs:string"				default="%APPPATH%\tempsymlink"	use="optional"/>
+		<xs:attribute name="tempdir_zipstaging"		type="xs:string"				default="%APPPATH%\tempzip"		use="optional"/>
+		<xs:attribute name="archiver"				type="ArchiverEnumType"			default="sevenzip"				use="optional"/>
+		<xs:attribute name="compressionlevel"		type="CompressionLevelEnumType" default="ultra"					use="optional"/>
+	</xs:complexType>
+
+	<xs:element name="zippingworkerserviceconfiguration" type="ZippingWorkerServiceConfigurationType"/>
+</xs:schema>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ZippingWorkerServiceConfiguration
+    sevenzipexepath="7z.exe"
+    symlinktempdir=""
+    archiver="sevenzip"
+    compressionlevel="ultra"/>

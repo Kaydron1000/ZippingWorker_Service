@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<xs:schema id="ZipInfoSchema"
+    targetNamespace="http://tempuri.org/ZipInfoSchema.xsd"
+    elementFormDefault="unqualified"
+    xmlns="http://tempuri.org/ZipInfoSchema.xsd"
+    xmlns:mstns="http://tempuri.org/ZipInfoSchema.xsd"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+>
+
+	<xs:simpleType name="CompressionLevelEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="nocompression" />
+			<xs:enumeration value="fastest" />
+			<xs:enumeration value="fast" />
+			<xs:enumeration value="normal" />
+			<xs:enumeration value="maximum" />
+			<xs:enumeration value="ultra" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:complexType name="DriveLetterType">
+		<xs:attribute name="driveLetter" type="xs:string" use="required"/>
+		<xs:attribute name="drivePath" type="xs:string" use="required"/>
+	</xs:complexType>
+
+	<xs:complexType name="FileInfoType">
+		<xs:attribute name="filelocation" type="xs:string" use="required"/>
+		<xs:attribute name="filehash" type="xs:string" use="optional"/>
+		<xs:attribute name="internalziplocation" type="xs:string" use="required"/>
+	</xs:complexType>
+
+	<xs:complexType name="FileInfosType">
+		<xs:sequence>
+			<xs:element name="fileinfo" type="FileInfoType" minOccurs="1" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="DriveLettersType">
+		<xs:sequence>
+			<xs:element name="driveletter" type="DriveLetterType" minOccurs="1" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	
+	<xs:complexType name="ZipInfoType">
+		<xs:all>
+			<xs:element name="zipfilename"			type="xs:string"										minOccurs="1"/>
+			<xs:element name="zipfilelocation"		type="xs:string"					default=""			minOccurs="0"/>
+			<xs:element name="zipcompressionlevel"	type="CompressionLevelEnumType"		default="ultra"		minOccurs="0"/>
+			<xs:element name="validatezipping"		type="xs:boolean"					default="true"		minOccurs="0"/>
+			<xs:element name="deleteinputfiles"		type="xs:boolean"					default="false"		minOccurs="0"/>
+			<xs:element name="driveletters"			type="DriveLettersType"									minOccurs="1"/>
+			<xs:element name="zipfiles"				type="FileInfosType"									minOccurs="1"/>
+		</xs:all>
+	</xs:complexType>
+
+	<xs:element name="zippingfiles" type="ZipInfoType"/>
+</xs:schema>
