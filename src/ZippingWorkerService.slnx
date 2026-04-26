@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="ZippingWorkerService.Tests/ZippingWorkerService.Tests.csproj" />
-  <Project Path="ZippingWorkerService/ZippingWorkerService.csproj" />
-</Solution>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../AUTOMATIC_DRIVE_RESOLUTION.md" />
+    <File Path="../METRICS.md" />
+    <File Path="../README.md" />
+    <File Path="../SCHEMA_UPDATE_NOTES.md" />
+  </Folder>
+  <Project Path="ZippingWorker_Client/ZippingWorker_Client.csproj" />
+  <Project Path="ZippingWorker_Service.Tests/ZippingWorkerService.Tests.csproj" />
+  <Project Path="ZippingWorker_Service/ZippingWorker_Service.csproj" />
+</Solution>

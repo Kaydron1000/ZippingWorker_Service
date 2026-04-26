@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-ZippingWorkerService-f1d6ac07-960d-4732-85ae-49ac21400548</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Configuration\ZippingWorkerServiceConfigurationSchema.xsd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\ZippingWorkerServiceConfigurationSchema.xsd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="config.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Examples\test-api.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Examples\test-validation.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Examples\test-zipinfo-binary.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Examples\test-zipinfo-xml.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="cd &quot;$(ProjectDir)Configuration&quot;&#xD;&#xA;xsd &quot;ZippingWorkerServiceConfigurationSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Configuration&#xD;&#xA;cd &quot;$(ProjectDir)Model&quot;&#xD;&#xA;xsd &quot;ZipInfoSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Model&#xD;&#xA;" />
+  </Target>
+</Project>
