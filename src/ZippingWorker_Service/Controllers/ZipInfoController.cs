@@ -4,6 +4,8 @@ using ZippingWorker_Service.Configuration;
 using ZippingWorker_Service.Services;
 using ZippingWorker_Service.Zipping;
 using ZippingWorker_Service.Model;
+using System.Xml;
+using System.Xml.Schema;
 
 namespace ZippingWorker_Service.Controllers
 {
@@ -16,6 +18,9 @@ namespace ZippingWorker_Service.Controllers
         private readonly IMetricsService _metrics;
         private readonly ILogger<ZipInfoController> _logger;
 
+        private XmlSchemaSet _SchemaSet;
+        private XmlOnDeserializedSerializer _Serializer;
+
         public ZipInfoController(
             IZipRequestQueue zipQueue, 
             IDriveLetterResolver driveResolver,
@@ -26,6 +31,9 @@ namespace ZippingWorker_Service.Controllers
             _driveResolver = driveResolver;
             _metrics = metrics;
             _logger = logger;
+
+            _SchemaSet = XmlExtensions.LoadSchemaSet("ZippingWorker_Service", "ZipInfoSchema.xsd");
+            _Serializer = new XmlOnDeserializedSerializer(typeof(ZipInfoType));
         }
 
         /// <summary>
@@ -39,6 +47,8 @@ namespace ZippingWorker_Service.Controllers
         {
             try
             {
+                _metrics.RecordZipRequested();
+
                 byte[] buffer;
                 using (var ms = new MemoryStream())
                 {
@@ -54,11 +64,43 @@ namespace ZippingWorker_Service.Controllers
                 _logger.LogInformation("Received {ByteCount} bytes for deserialization", buffer.Length);
 
                 // Deserialize using XML serializer (safer than BinaryFormatter)
-                ZipInfoType zipInfo;
-                using (var ms = new MemoryStream(buffer))
+                ZipInfoType zipInfo = null;
+                using (MemoryStream ms = new MemoryStream(buffer))
                 {
-                    var serializer = new XmlSerializer(typeof(ZipInfoType));
-                    zipInfo = (ZipInfoType)serializer.Deserialize(ms)!;
+                    using(XmlReader reader = XmlReader.Create(ms))
+                    {
+                        XmlReader xmlContentNormalized = _Serializer.ValidateAgainstSchemaIgnoreCaseAndRootLoc(reader, _SchemaSet, out List<ValidationEventArgs> localErrorList, out List<ValidationEventArgs> localWarningList);
+                        if (localErrorList.Count == 0 && xmlContentNormalized != null)
+                        {
+                            zipInfo = (ZipInfoType)_Serializer.Deserialize(xmlContentNormalized);
+                            if (localWarningList.Count != 0)
+                            {
+                                _logger.LogWarning("XML validation completed with {WarningCount} warnings and no errors", localWarningList.Count);
+                                foreach (var warning in localWarningList)
+                                {
+                                    _logger.LogWarning("Validation Warning: {Message} at Line {LineNumber}, Position {LinePosition}", warning.Message, warning.Exception.LineNumber, warning.Exception.LinePosition);
+                                }
+
+                            }
+                            else
+                            {
+                                _logger.LogInformation("XML validation successful with no errors or warnings");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogError("XML validation failed with {ErrorCount} errors and {WarningCount} warnings", localErrorList.Count, localWarningList.Count);
+                            foreach (var error in localErrorList)
+                            {
+                                _logger.LogError("Validation Error: {Message} at Line {LineNumber}, Position {LinePosition}", error.Message, error.Exception.LineNumber, error.Exception.LinePosition);
+                            }
+                            foreach (var warning in localWarningList)
+                            {
+                                _logger.LogWarning("Validation Warning: {Message} at Line {LineNumber}, Position {LinePosition}", warning.Message, warning.Exception.LineNumber, warning.Exception.LinePosition);
+                            }
+                            return StatusCode(400, new { Error = "XML validation failed", Errors = localErrorList.Select(e => e.Message), Warnings = localWarningList.Select(w => w.Message) });
+                        }
+                    }
                 }
 
                 if (zipInfo == null)
@@ -106,14 +148,14 @@ namespace ZippingWorker_Service.Controllers
 
                 foreach (var driveMapping in zipInfo.driveletters)
                 {
-                    if (!string.IsNullOrWhiteSpace(driveMapping.driveLetter) && 
-                        !string.IsNullOrWhiteSpace(driveMapping.drivePath))
+                    if (!string.IsNullOrWhiteSpace(driveMapping.driveletter) && 
+                        !string.IsNullOrWhiteSpace(driveMapping.drivepath))
                     {
-                        string normalizedDriveLetter = driveMapping.driveLetter.TrimEnd(':') + ":";
-                        manualMappings[normalizedDriveLetter] = driveMapping.drivePath;
+                        string normalizedDriveLetter = driveMapping.driveletter.TrimEnd(':') + ":";
+                        manualMappings[normalizedDriveLetter] = driveMapping.drivepath;
 
                         _logger.LogInformation("Manual drive letter mapping configured: {DriveLetter} -> {DrivePath}", 
-                            normalizedDriveLetter, driveMapping.drivePath);
+                            normalizedDriveLetter, driveMapping.drivepath);
                     }
                 }
 
@@ -125,13 +167,13 @@ namespace ZippingWorker_Service.Controllers
 
             // Build output path with automatic drive letter resolution
             string outputPath;
-            if (string.IsNullOrWhiteSpace(zipInfo.zipfilelocation))
+            if (string.IsNullOrWhiteSpace(zipInfo.zipfiledirectory))
             {
                 outputPath = Path.Combine(Directory.GetCurrentDirectory(), zipInfo.zipfilename);
             }
             else
             {
-                var location = _driveResolver.ResolvePath(zipInfo.zipfilelocation, manualMappings);
+                var location = _driveResolver.ResolvePath(zipInfo.zipfiledirectory, manualMappings);
                 outputPath = Path.Combine(location, zipInfo.zipfilename);
             }
 

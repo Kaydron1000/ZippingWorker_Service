@@ -104,6 +104,38 @@ namespace ZippingWorker_Service.Configuration
             this.sevenzipexepath = this.sevenzipexepath.Trim();
             this.PropertyChanged += ZippingWorker_ServiceConfigurationType_PropertyChanged;
         }
+        public void PostLoad(ILogger<ConfigurationData> logger)
+        {
+            if (this.tempdir_symlink_createIfNotExist)
+            {
+                if (!Directory.Exists(this.ResolvedTempDir_SymLink))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(this.ResolvedTempDir_SymLink);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogError(ex, $"Failed to create directory for tempdir_symlink at '{this.ResolvedTempDir_SymLink}'");
+                    }
+                }
+            }
+            if (this.tempdir_zipstaging_createIfNotExist)
+            {
+                if (!Directory.Exists(this.ResolvedTempDir_ZipStaging))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(this.ResolvedTempDir_ZipStaging);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogError(ex, $"Failed to create directory for tempdir_zipstaging at '{this.ResolvedTempDir_ZipStaging}'");
+                    }
+                }
+            }
+        }
     }
 
 }

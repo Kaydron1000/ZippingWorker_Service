@@ -12,7 +12,8 @@ namespace ZippingWorker_Service.Zipping
         private const string _sevenZipExePath = "7z.exe";
         private const string _compressionArgs = "-mx9";
         public static async Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
-                                                    string archiveOutputPath,
+                                                    string stagingDirectory,
+                                                    string zipOutputPath,
                                                     string? sevenZipExePath = _sevenZipExePath,
                                                     ProgressCallback? onProgress = null,
                                                     string? compressionArgs = _compressionArgs,
@@ -25,15 +26,7 @@ namespace ZippingWorker_Service.Zipping
             if (compressionArgs == null)
                 compressionArgs = _compressionArgs;
 
-            string tempRoot;
-            if (!string.IsNullOrWhiteSpace(symlinkTempDir) && Directory.Exists(symlinkTempDir))
-            {
-                tempRoot = Path.Combine(symlinkTempDir, "7zstaging_" + Guid.NewGuid().ToString("N"));
-            }
-            else
-            {
-                tempRoot = Path.Combine(Path.GetTempPath(), "7zstaging_" + Guid.NewGuid().ToString("N"));
-            }
+            string tempRoot = stagingDirectory;
             Directory.CreateDirectory(tempRoot);
             try
             {
@@ -49,13 +42,30 @@ namespace ZippingWorker_Service.Zipping
                             string linkPath = Path.Combine(tempRoot, archivePath);
                             Directory.CreateDirectory(Path.GetDirectoryName(linkPath) ?? tempRoot);
                             bool isDir = Directory.Exists(source);
-                            bool success = await mklink.CreateLinkAsync(linkPath, source, isDir);
-
-                            if (!success)
+                            bool success = false;
+                            if (isDir)
                             {
-                                var ex = new Exception($"Failed to create symlink: '{linkPath}' —> '{source}'");
-                                onError?.Invoke(ex);
-                                continue;
+                                try
+                                {
+                                    Directory.CreateDirectory(linkPath);
+                                }
+                                catch
+                                {
+                                    var ex = new Exception($"Failed to create directory for symlink: '{linkPath}' —> '{source}'");
+                                    onError?.Invoke(ex);
+                                    continue;
+                                }
+                            }
+                            else
+                            {
+                                success = await mklink.CreateLinkAsync(linkPath, source, isDir);
+
+                                if (!success)
+                                {
+                                    var ex = new Exception($"Failed to create symlink: '{linkPath}' —> '{source}'");
+                                    onError?.Invoke(ex);
+                                    continue;
+                                }
                             }
                             index++;
                             onProgress?.Invoke(index, files.Count, archivePath);
@@ -73,7 +83,8 @@ namespace ZippingWorker_Service.Zipping
                 }
                 
                 onLog?.Invoke("[7z] Starting compression...");
-                string arguments = $"a —spf {compressionArgs} \"{archiveOutputPath}\" \"{tempRoot}\"";
+                
+                string arguments = $"a -ssp {compressionArgs} \"{zipOutputPath}\" \"{tempRoot}\"";
                 var psi = new ProcessStartInfo
                 {
                     FileName = sevenZipExePath,

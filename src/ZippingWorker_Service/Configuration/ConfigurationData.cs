@@ -12,6 +12,7 @@ namespace ZippingWorker_Service.Configuration
     using System.Xml.Linq;
     using System.Xml.Schema;
     using System.Reflection;
+    using Microsoft.Extensions.Logging;
     public class ConfigurationData
     {
         private const string ASSEMBLYNAME = "ZippingWorker_Service";
@@ -22,18 +23,20 @@ namespace ZippingWorker_Service.Configuration
         private XDocument _XmlDoc;
         private bool _XmlSchemaError = false;
         private bool _XmlSchemaWarning = false;
+        private readonly ILogger<ConfigurationData> _Logger;
         public bool XmlSchemaError => _XmlSchemaError;
         public bool XmlSchemaWarning => _XmlSchemaWarning;
         public ZippingWorker_ServiceConfigurationType ApplicationConfiguration => _ApplicationConfiguration;
         public List<ValidationEventArgs> ErrorList => _ErrorList;
         public List<ValidationEventArgs> WarningList => _WarningList;
         public XDocument XmlDoc => _XmlDoc;
-        public ConfigurationData()
+        public ConfigurationData(ILogger<ConfigurationData> logger = null)
         {
+            _Logger = logger;
             _ErrorList = new List<ValidationEventArgs>();
             _WarningList = new List<ValidationEventArgs>();
         }
-        public ConfigurationData(string xmlPath) : this()
+        public ConfigurationData(string xmlPath, ILogger<ConfigurationData> logger = null) : this(logger)
         {
             ImportXml(xmlPath);
         }
@@ -45,55 +48,103 @@ namespace ZippingWorker_Service.Configuration
         public bool ImportXml(string xmlPath)
         {
             _XmlDoc = System.Xml.Linq.XDocument.Load(xmlPath);
-            var lowerDoc = new XDocument(_XmlDoc.Root.ToLowerCaseNamesAndRemoveCommentsAndTrueFalseValues());
 
-            XmlSchemaSet schemas = LoadSchemaSet();
-            XmlSchema firstSchema = schemas.Schemas().Cast<XmlSchema>().FirstOrDefault();
-            XNamespace ns = firstSchema.TargetNamespace;
-            string rootElement = firstSchema.Elements.Names.OfType<XmlQualifiedName>().Last().Name;
-            //string rootElement = schemaSet.GlobalElements.Names.OfType<XmlQualifiedName>().First().Name;
-            XName FullRoot = XName.Get(rootElement, ns.NamespaceName);
+            XmlSchemaSet schemas1 = LoadSchemaSet();
+            XmlOnDeserializedSerializer serializer1 = new XmlOnDeserializedSerializer(typeof(ZippingWorker_ServiceConfigurationType));
+            XmlReader xmlContentNormalized = serializer1.ValidateAgainstSchemaIgnoreCaseAndRootLoc(_XmlDoc.CreateReader(), schemas1, out List<ValidationEventArgs> localErrorList, out List<ValidationEventArgs> localWarningList);
 
-            XElement baseAppEle = null;
-            // Check if full Root Exists
-            baseAppEle = lowerDoc.Root.DescendantsAndSelf(FullRoot).SingleOrDefault();
-            if (baseAppEle == null)
+            ErrorList.AddRange(localErrorList);
+            WarningList.AddRange(localWarningList);
+
+            if (localErrorList.Count > 0)
             {
-                // Check if unQualified Root Exists
-                baseAppEle = lowerDoc.Root.DescendantsAndSelf(rootElement).SingleOrDefault();
-
-                // if unqualified exists add qualified name
-                if (baseAppEle != null)
+                _Logger?.LogError("Configuration validation failed with {ErrorCount} error(s)", localErrorList.Count);
+                foreach (var error in localErrorList)
                 {
-                    XName qualName = ns + baseAppEle.Name.LocalName;
-                    baseAppEle.Name = qualName;
+                    _Logger?.LogError("Validation Error: {Message} at Line {Line}, Position {Position}", 
+                        error.Message, error.Exception?.LineNumber ?? 0, error.Exception?.LinePosition ?? 0);
                 }
             }
-            XDocument newDoc = new XDocument(baseAppEle);
 
-            try
+            if (localWarningList.Count > 0)
             {
-                newDoc.Validate(schemas, ValidationHandler);
+                _Logger?.LogWarning("Configuration validation produced {WarningCount} warning(s)", localWarningList.Count);
+                foreach (var warning in localWarningList)
+                {
+                    _Logger?.LogWarning("Validation Warning: {Message} at Line {Line}, Position {Position}", 
+                        warning.Message, warning.Exception?.LineNumber ?? 0, warning.Exception?.LinePosition ?? 0);
+                }
             }
-            catch (Exception e)
+
+            if (ErrorList.Count > 0)
             {
                 _ApplicationConfiguration = default(ZippingWorker_ServiceConfigurationType);
-                throw e;
+                return false;
             }
-            try
-
+            else if (ErrorList.Count == 0 && xmlContentNormalized != null)
             {
-                XmlOnDeserializedSerializer serializer = new XmlOnDeserializedSerializer(typeof(ZippingWorker_ServiceConfigurationType));
-                _ApplicationConfiguration = (ZippingWorker_ServiceConfigurationType)serializer.Deserialize(newDoc.CreateReader());
-
+                try
+                {
+                    _ApplicationConfiguration = (ZippingWorker_ServiceConfigurationType)serializer1.Deserialize(xmlContentNormalized);
+                    _ApplicationConfiguration.PostLoad(_Logger);
+                    LogConfigurationProperties(_Logger);
+                }
+                catch (Exception e)
+                {
+                    _ApplicationConfiguration = default(ZippingWorker_ServiceConfigurationType);
+                    throw e;
+                }
             }
+            //_XmlDoc = System.Xml.Linq.XDocument.Load(xmlPath);
+            //var lowerDoc = new XDocument(_XmlDoc.Root.ToLowerCaseNamesAndRemoveCommentsAndTrueFalseValues());
 
-            catch (Exception e)
+            //XmlSchemaSet schemas = LoadSchemaSet();
+            //XmlSchema firstSchema = schemas.Schemas().Cast<XmlSchema>().FirstOrDefault();
+            //XNamespace ns = firstSchema.TargetNamespace;
+            //string rootElement = firstSchema.Elements.Names.OfType<XmlQualifiedName>().Last().Name;
+            ////string rootElement = schemaSet.GlobalElements.Names.OfType<XmlQualifiedName>().First().Name;
+            //XName FullRoot = XName.Get(rootElement, ns.NamespaceName);
 
-            {
-                throw e;
+            //XElement baseAppEle = null;
+            //// Check if full Root Exists
+            //baseAppEle = lowerDoc.Root.DescendantsAndSelf(FullRoot).SingleOrDefault();
+            //if (baseAppEle == null)
+            //{
+            //    // Check if unQualified Root Exists
+            //    baseAppEle = lowerDoc.Root.DescendantsAndSelf(rootElement).SingleOrDefault();
 
-            }
+            //    // if unqualified exists add qualified name
+            //    if (baseAppEle != null)
+            //    {
+            //        XName qualName = ns + baseAppEle.Name.LocalName;
+            //        baseAppEle.Name = qualName;
+            //    }
+            //}
+            //XDocument newDoc = new XDocument(baseAppEle);
+
+            //try
+            //{
+            //    newDoc.Validate(schemas, ValidationHandler);
+            //}
+            //catch (Exception e)
+            //{
+            //    _ApplicationConfiguration = default(ZippingWorker_ServiceConfigurationType);
+            //    throw e;
+            //}
+            //try
+
+            //{
+            //    XmlOnDeserializedSerializer serializer = new XmlOnDeserializedSerializer(typeof(ZippingWorker_ServiceConfigurationType));
+            //    _ApplicationConfiguration = (ZippingWorker_ServiceConfigurationType)serializer.Deserialize(newDoc.CreateReader());
+
+            //}
+
+            //catch (Exception e)
+
+            //{
+            //    throw e;
+
+            //}
 
             return !XmlSchemaError;
 
@@ -110,7 +161,6 @@ namespace ZippingWorker_Service.Configuration
             if (!String.IsNullOrEmpty(ASSEMBLYNAME))
             {
                 Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                //_Logger.Verbose ("LOADED ASSEMBLIES: \n" + String.Join("\n", assemblies.Select(o => o.GetName () .Name)));
                 ConfigurationAssembly = assemblies.SingleOrDefault(o => o.GetName().Name == ASSEMBLYNAME);
                 resourceNames = ConfigurationAssembly?.GetManifestResourceNames();
             }
@@ -140,7 +190,24 @@ namespace ZippingWorker_Service.Configuration
             schemaSet.Compile();
             return schemaSet;
         }
+        private void LogConfigurationProperties(ILogger<ConfigurationData> logger)
+        {
+            if (logger == null || _ApplicationConfiguration == null)
+                return;
 
+            logger.LogInformation("Configuration loaded successfully:");
+            logger.LogInformation("  ServicePort: {ServicePort}", _ApplicationConfiguration.serviceport);
+            logger.LogInformation("  SevenZipExePath: {SevenZipExePath}", _ApplicationConfiguration.sevenzipexepath);
+            logger.LogInformation("  ResolvedSevenZipExePath: {ResolvedSevenZipExePath}", _ApplicationConfiguration.ResolvedSevenZipExePath);
+            logger.LogInformation("  TempDir_SymLink: {TempDirSymLink}", _ApplicationConfiguration.tempdir_symlink);
+            logger.LogInformation("  TempDir_SymLink_CreateIfNotExist: {CreateIfNotExist}", _ApplicationConfiguration.tempdir_symlink_createIfNotExist);
+            logger.LogInformation("  ResolvedTempDir_SymLink: {ResolvedTempDirSymLink}", _ApplicationConfiguration.ResolvedTempDir_SymLink);
+            logger.LogInformation("  TempDir_ZipStaging: {TempDirZipStaging}", _ApplicationConfiguration.tempdir_zipstaging);
+            logger.LogInformation("  TempDir_ZipStaging_CreateIfNotExist: {CreateIfNotExist}", _ApplicationConfiguration.tempdir_zipstaging_createIfNotExist);
+            logger.LogInformation("  ResolvedTempDir_ZipStaging: {ResolvedTempDirZipStaging}", _ApplicationConfiguration.ResolvedTempDir_ZipStaging);
+            logger.LogInformation("  Archiver: {Archiver}", _ApplicationConfiguration.archiver);
+            logger.LogInformation("  CompressionLevel: {CompressionLevel}", _ApplicationConfiguration.compressionlevel);
+        }
         /// <summary>
         /// Validation handler used for xml validation.
         /// </summary>

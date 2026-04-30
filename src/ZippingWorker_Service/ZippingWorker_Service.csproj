@@ -8,11 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Configuration\ZippingWorkerServiceConfigurationSchema.xsd" />
+    <None Remove="Model\ZipInfoSchema.xsd" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Configuration\ZippingWorkerServiceConfigurationSchema.xsd" />
+    <EmbeddedResource Include="Configuration\ZippingWorker_ServiceConfigurationSchema.xsd" />
+    <EmbeddedResource Include="Model\ZipInfoSchema.xsd" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,6 +40,6 @@
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="cd &quot;$(ProjectDir)Configuration&quot;&#xD;&#xA;xsd &quot;ZippingWorkerServiceConfigurationSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Configuration&#xD;&#xA;cd &quot;$(ProjectDir)Model&quot;&#xD;&#xA;xsd &quot;ZipInfoSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Model&#xD;&#xA;" />
+    <Exec Command="cd &quot;$(ProjectDir)Configuration&quot;&#xD;&#xA;xsd &quot;ZippingWorker_ServiceConfigurationSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Configuration&#xD;&#xA;cd &quot;$(ProjectDir)Model&quot;&#xD;&#xA;xsd &quot;ZipInfoSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Model&#xD;&#xA;" />
   </Target>
 </Project>

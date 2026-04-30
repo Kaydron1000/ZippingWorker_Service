@@ -10,6 +10,14 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 // Load configuration
+// Create a temporary logger for configuration loading
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddConsole();
+    builder.SetMinimumLevel(LogLevel.Information);
+});
+var configLogger = loggerFactory.CreateLogger<ConfigurationData>();
+
 var configPath = Path.Combine(AppContext.BaseDirectory, "config.xml");
 if (!File.Exists(configPath))
 {
@@ -17,10 +25,10 @@ if (!File.Exists(configPath))
 }
 
 ConfigurationData configData = File.Exists(configPath) 
-    ? new ConfigurationData(configPath) 
-    : new ConfigurationData();
+    ? new ConfigurationData(configPath, configLogger) 
+    : new ConfigurationData(configLogger);
 
-ZippingWorker_ServiceConfigurationType config = configData.ApplicationConfiguration ?? new ZippingWorker_ServiceConfigurationType();
+ZippingWorker_ServiceConfigurationType config = configData.ApplicationConfiguration;
 
 // Configure service to listen on the configured port
 builder.WebHost.UseUrls($"http://*:{config.serviceport}");

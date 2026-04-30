@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ZippingWorker_ServiceConfiguration
+<zippingworker_serviceconfiguration
+	serviceport="5000"
     sevenzipexepath="7z.exe"
-    symlinktempdir=""
+	tempdir_symlink="%APPPATH%\tempsymlink"
+	tempdir_zipstaging="%APPPATH%\tempzip"
     archiver="sevenzip"
     compressionlevel="ultra"/>

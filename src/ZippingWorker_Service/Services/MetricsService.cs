@@ -4,6 +4,7 @@ namespace ZippingWorker_Service.Services
 {
     public interface IMetricsService
     {
+        void RecordZipRequested();
         void RecordZipRequestQueued();
         void RecordZipRequestStarted();
         void RecordZipRequestCompleted(bool success, double durationSeconds, long zipSizeBytes, int fileCount);
@@ -17,6 +18,10 @@ namespace ZippingWorker_Service.Services
     public class MetricsService : IMetricsService
     {
         // Counters
+        private static readonly Counter ZipRequested = Metrics.CreateCounter(
+            "zipping_requests_total",
+            "Total number of zip requests");
+
         private static readonly Counter ZipRequestsQueued = Metrics.CreateCounter(
             "zipping_requests_queued_total",
             "Total number of zip requests queued");
@@ -95,6 +100,11 @@ namespace ZippingWorker_Service.Services
         {
             // Static constructor to ensure metrics are registered with Prometheus
             // This forces initialization of all static readonly fields when the type is first accessed
+        }
+
+        public void RecordZipRequested()
+        {
+            ZipRequested.Inc();
         }
 
         public void RecordZipRequestQueued()

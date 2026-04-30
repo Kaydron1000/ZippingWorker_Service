@@ -26,7 +26,7 @@ namespace ZippingWorker_Service.Model {
         
         private string zipfilenameField;
         
-        private string zipfilelocationField;
+        private string zipfiledirectoryField;
         
         private CompressionLevelEnumType zipcompressionlevelField;
         
@@ -39,7 +39,7 @@ namespace ZippingWorker_Service.Model {
         private FileInfoType[] zipfilesField;
         
         public ZipInfoType() {
-            this.zipfilelocationField = "";
+            this.zipfiledirectoryField = "";
             this.zipcompressionlevelField = CompressionLevelEnumType.ultra;
             this.validatezippingField = true;
             this.deleteinputfilesField = false;
@@ -60,13 +60,13 @@ namespace ZippingWorker_Service.Model {
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
         [System.ComponentModel.DefaultValueAttribute("")]
-        public string zipfilelocation {
+        public string zipfiledirectory {
             get {
-                return this.zipfilelocationField;
+                return this.zipfiledirectoryField;
             }
             set {
-                this.zipfilelocationField = value;
-                this.RaisePropertyChanged("zipfilelocation");
+                this.zipfiledirectoryField = value;
+                this.RaisePropertyChanged("zipfiledirectory");
             }
         }
         
@@ -178,31 +178,31 @@ namespace ZippingWorker_Service.Model {
     [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
     public partial class DriveLetterType : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private string driveLetterField;
+        private string driveletterField;
         
-        private string drivePathField;
+        private string drivepathField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string driveLetter {
+        public string driveletter {
             get {
-                return this.driveLetterField;
+                return this.driveletterField;
             }
             set {
-                this.driveLetterField = value;
-                this.RaisePropertyChanged("driveLetter");
+                this.driveletterField = value;
+                this.RaisePropertyChanged("driveletter");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string drivePath {
+        public string drivepath {
             get {
-                return this.drivePathField;
+                return this.drivepathField;
             }
             set {
-                this.drivePathField = value;
-                this.RaisePropertyChanged("drivePath");
+                this.drivepathField = value;
+                this.RaisePropertyChanged("drivepath");
             }
         }
         

@@ -10,7 +10,7 @@ $xml = @"
   <zipfilelocation>C:\temp\output</zipfilelocation>
   <zipcompressionlevel>ultra</zipcompressionlevel>
   <validatezipping>true</validatezipping>
-  <driveletters DriveLetter="C:" DrivePath="E:\TestData" />
+  <driveletters driveletter="C:" drivepath="E:\TestData" />
   <zipfiles>
     <fileinfo filelocation="C:\Windows\System32\drivers\etc\hosts" filehash="" internalziplocation="config/hosts.txt" />
     <fileinfo filelocation="C:\Windows\System32\drivers\etc\networks" filehash="" internalziplocation="config/networks.txt" />

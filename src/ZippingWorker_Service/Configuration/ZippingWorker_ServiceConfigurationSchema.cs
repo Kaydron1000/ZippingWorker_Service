@@ -21,7 +21,7 @@ namespace ZippingWorker_Service.Configuration {
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
     [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd")]
-    [System.Xml.Serialization.XmlRootAttribute("ZippingWorker_Serviceconfiguration", Namespace="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd", IsNullable=false)]
+    [System.Xml.Serialization.XmlRootAttribute("zippingworker_serviceconfiguration", Namespace="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd", IsNullable=false)]
     public partial class ZippingWorker_ServiceConfigurationType : object, System.ComponentModel.INotifyPropertyChanged {
         
         private int serviceportField;
@@ -30,7 +30,11 @@ namespace ZippingWorker_Service.Configuration {
         
         private string tempdir_symlinkField;
         
+        private bool tempdir_symlink_createIfNotExistField;
+        
         private string tempdir_zipstagingField;
+        
+        private bool tempdir_zipstaging_createIfNotExistField;
         
         private ArchiverEnumType archiverField;
         
@@ -40,7 +44,9 @@ namespace ZippingWorker_Service.Configuration {
             this.serviceportField = 5000;
             this.sevenzipexepathField = "7z.exe";
             this.tempdir_symlinkField = "%APPPATH%\\tempsymlink";
+            this.tempdir_symlink_createIfNotExistField = true;
             this.tempdir_zipstagingField = "%APPPATH%\\tempzip";
+            this.tempdir_zipstaging_createIfNotExistField = true;
             this.archiverField = ArchiverEnumType.sevenzip;
             this.compressionlevelField = CompressionLevelEnumType.ultra;
         }
@@ -86,6 +92,19 @@ namespace ZippingWorker_Service.Configuration {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(true)]
+        public bool tempdir_symlink_createIfNotExist {
+            get {
+                return this.tempdir_symlink_createIfNotExistField;
+            }
+            set {
+                this.tempdir_symlink_createIfNotExistField = value;
+                this.RaisePropertyChanged("tempdir_symlink_createIfNotExist");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
         [System.ComponentModel.DefaultValueAttribute("%APPPATH%\\tempzip")]
         public string tempdir_zipstaging {
             get {
@@ -94,6 +113,19 @@ namespace ZippingWorker_Service.Configuration {
             set {
                 this.tempdir_zipstagingField = value;
                 this.RaisePropertyChanged("tempdir_zipstaging");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(true)]
+        public bool tempdir_zipstaging_createIfNotExist {
+            get {
+                return this.tempdir_zipstaging_createIfNotExistField;
+            }
+            set {
+                this.tempdir_zipstaging_createIfNotExistField = value;
+                this.RaisePropertyChanged("tempdir_zipstaging_createIfNotExist");
             }
         }
         

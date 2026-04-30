@@ -8,6 +8,7 @@ namespace ZippingWorker_Service.Zipping
     public class DotNetZipArchiver : IArchiver
     {
         public async Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
+                                            string stagingDirectory,
                                             string archiveOutputPath,
                                             ArchiveCompressionLevel compressionLevel = ArchiveCompressionLevel.ultra,
                                             ProgressCallback? onProgress = null,

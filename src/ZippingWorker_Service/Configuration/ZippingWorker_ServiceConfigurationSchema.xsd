@@ -26,13 +26,15 @@
 	</xs:simpleType>
 	
 	<xs:complexType name="ZippingWorker_ServiceConfigurationType">
-		<xs:attribute name="serviceport"			type="xs:int"					default="5000"					use="optional"/>
-		<xs:attribute name="sevenzipexepath"		type="xs:string"				default="7z.exe"				use="optional"/>
-		<xs:attribute name="tempdir_symlink"		type="xs:string"				default="%APPPATH%\tempsymlink"	use="optional"/>
-		<xs:attribute name="tempdir_zipstaging"		type="xs:string"				default="%APPPATH%\tempzip"		use="optional"/>
-		<xs:attribute name="archiver"				type="ArchiverEnumType"			default="sevenzip"				use="optional"/>
-		<xs:attribute name="compressionlevel"		type="CompressionLevelEnumType" default="ultra"					use="optional"/>
+		<xs:attribute name="serviceport"							type="xs:int"					default="5000"					use="optional"/>
+		<xs:attribute name="sevenzipexepath"						type="xs:string"				default="7z.exe"				use="optional"/>
+		<xs:attribute name="tempdir_symlink"						type="xs:string"				default="%APPPATH%\tempsymlink"	use="optional"/>
+		<xs:attribute name="tempdir_symlink_createIfNotExist"		type="xs:boolean"				default="true"					use="optional"/>
+		<xs:attribute name="tempdir_zipstaging"						type="xs:string"				default="%APPPATH%\tempzip"		use="optional"/>
+		<xs:attribute name="tempdir_zipstaging_createIfNotExist"	type="xs:boolean"				default="true"					use="optional"/>
+		<xs:attribute name="archiver"								type="ArchiverEnumType"			default="sevenzip"				use="optional"/>
+		<xs:attribute name="compressionlevel"						type="CompressionLevelEnumType" default="ultra"					use="optional"/>
 	</xs:complexType>
 
-	<xs:element name="ZippingWorker_Serviceconfiguration" type="ZippingWorker_ServiceConfigurationType"/>
+	<xs:element name="zippingworker_serviceconfiguration" type="ZippingWorker_ServiceConfigurationType"/>
 </xs:schema>

@@ -44,7 +44,8 @@ namespace ZippingWorker_Service.Services
         }
 
         public Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
-                                      string archiveOutputPath,
+                                      string  stagingDirectory,
+                                      string zipOutputPath,
                                       ArchiveCompressionLevel compressionLevel = ArchiveCompressionLevel.ultra,
                                       ProgressCallback? onProgress = null,
                                       Action<string>? onLog = null,
@@ -63,7 +64,8 @@ namespace ZippingWorker_Service.Services
 
             return SevenZipSymlinkArchiver.CreateArchiveAsync(
                 files,
-                archiveOutputPath,
+                stagingDirectory,
+                zipOutputPath,
                 _sevenZipExePath,
                 onProgress,
                 compressionArgs,

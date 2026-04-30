@@ -16,20 +16,20 @@ namespace ZippingWorker_Service.Examples
             var zipInfo = new ZipInfoType
             {
                 zipfilename = "example-archive.zip",
-                zipfilelocation = @"C:\temp\output",
+                zipfiledirectory = @"C:\temp\output",
                 zipcompressionlevel = CompressionLevelEnumType.ultra,
                 validatezipping = true,
                 driveletters = new[]
                 {
                     new DriveLetterType
                     {
-                        driveLetter = "C:",
-                        drivePath = @"E:\TestData"
+                        driveletter = "C:",
+                        drivepath = @"E:\TestData"
                     },
                     new DriveLetterType
                     {
-                        driveLetter = "D:",
-                        drivePath = @"E:\OtherData"
+                        driveletter = "D:",
+                        drivepath = @"E:\OtherData"
                     }
                 },
                 zipfiles = new[]

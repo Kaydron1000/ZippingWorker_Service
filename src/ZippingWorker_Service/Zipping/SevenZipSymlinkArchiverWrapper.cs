@@ -40,8 +40,9 @@ namespace ZippingWorker_Service.Zipping
             }
 
             return SevenZipSymlinkArchiver.CreateArchiveAsync(
-                        zipinfo.zipfiles.Select(o => (o.filelocation, o.internalziplocation)).ToList(),
-                        System.IO.Path.Combine(zipinfo.zipfilelocation, zipinfo.zipfilename),
+                        zipinfo.zipfiles.Select(o => (o.ResolvedFileLocation, o.internalziplocation)).ToList(),
+                        zipinfo.ResolvedZipFileDirectory,
+                        System.IO.Path.Combine(zipinfo.ResolvedZipFileDirectory, zipinfo.zipfilename),
                         "7z.exe",
                         onProgress,
                         levelArg,
@@ -83,6 +84,7 @@ namespace ZippingWorker_Service.Zipping
             return SevenZipSymlinkArchiver.CreateArchiveAsync(
                         files,
                         archiveOutputPath,
+                        archiveOutputPath.Substring(0, archiveOutputPath.LastIndexOf(System.IO.Path.DirectorySeparatorChar)),
                         "7z.exe",
                         onProgress,
                         levelArg,
