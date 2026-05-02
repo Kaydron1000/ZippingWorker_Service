@@ -24,6 +24,8 @@ namespace ZippingWorker_Service.Configuration {
     [System.Xml.Serialization.XmlRootAttribute("zippingworker_serviceconfiguration", Namespace="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd", IsNullable=false)]
     public partial class ZippingWorker_ServiceConfigurationType : object, System.ComponentModel.INotifyPropertyChanged {
         
+        private MetaDataType[] metadataloggingField;
+        
         private int serviceportField;
         
         private string sevenzipexepathField;
@@ -49,6 +51,19 @@ namespace ZippingWorker_Service.Configuration {
             this.tempdir_zipstaging_createIfNotExistField = true;
             this.archiverField = ArchiverEnumType.sevenzip;
             this.compressionlevelField = CompressionLevelEnumType.ultra;
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("data", Form=System.Xml.Schema.XmlSchemaForm.Unqualified, IsNullable=false)]
+        public MetaDataType[] metadatalogging {
+            get {
+                return this.metadataloggingField;
+            }
+            set {
+                this.metadataloggingField = value;
+                this.RaisePropertyChanged("metadatalogging");
+            }
         }
         
         /// <remarks/>
@@ -152,6 +167,52 @@ namespace ZippingWorker_Service.Configuration {
             set {
                 this.compressionlevelField = value;
                 this.RaisePropertyChanged("compressionlevel");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.8.9037.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd")]
+    public partial class MetaDataType : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private string keyField;
+        
+        private string valueField;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string key {
+            get {
+                return this.keyField;
+            }
+            set {
+                this.keyField = value;
+                this.RaisePropertyChanged("key");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string value {
+            get {
+                return this.valueField;
+            }
+            set {
+                this.valueField = value;
+                this.RaisePropertyChanged("value");
             }
         }
         

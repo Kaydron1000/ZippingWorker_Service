@@ -86,6 +86,10 @@ namespace ZippingWorker_Service.Controllers
                             {
                                 _logger.LogInformation("XML validation successful with no errors or warnings");
                             }
+                            foreach(var data in zipInfo.GetAllChildMetaData())
+                            {
+                                _metrics.RecordZipMetadata(data.name, data.value);
+                            }
                         }
                         else
                         {

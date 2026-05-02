@@ -38,6 +38,29 @@ namespace ZippingWorker_Service.Model
             this.zipfilename = this.zipfilename.Trim();
             this.zipfiledirectory = this.zipfiledirectory.Trim();
         }
+        public List<MetaDataType> GetAllChildMetaData()
+        {
+            List<MetaDataType> retList = new List<MetaDataType>();
+            if (this.metadata != null)
+                retList.AddRange(this.metadata);
+            if (this.zipfiles != null)
+            {
+                foreach (var file in this.zipfiles)
+                {
+                    if (file.metadata != null)
+                        retList.AddRange(file.metadata);
+                }
+            }
+            if (this.driveletters != null)
+            {
+                foreach (var drive in this.driveletters)
+                {
+                    if (drive.metadata != null)
+                        retList.AddRange(drive.metadata);
+                }
+            }
+            return retList;
+        }
     }
     public partial class FileInfoType
     {

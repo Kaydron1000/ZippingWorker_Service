@@ -38,6 +38,8 @@ namespace ZippingWorker_Service.Model {
         
         private FileInfoType[] zipfilesField;
         
+        private MetaDataType[] metadataField;
+        
         public ZipInfoType() {
             this.zipfiledirectoryField = "";
             this.zipcompressionlevelField = CompressionLevelEnumType.ultra;
@@ -135,6 +137,19 @@ namespace ZippingWorker_Service.Model {
             }
         }
         
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("data", Form=System.Xml.Schema.XmlSchemaForm.Unqualified, IsNullable=false)]
+        public MetaDataType[] metadata {
+            get {
+                return this.metadataField;
+            }
+            set {
+                this.metadataField = value;
+                this.RaisePropertyChanged("metadata");
+            }
+        }
+        
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         
         protected void RaisePropertyChanged(string propertyName) {
@@ -178,9 +193,24 @@ namespace ZippingWorker_Service.Model {
     [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
     public partial class DriveLetterType : object, System.ComponentModel.INotifyPropertyChanged {
         
+        private MetaDataType[] metadataField;
+        
         private string driveletterField;
         
         private string drivepathField;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("data", Form=System.Xml.Schema.XmlSchemaForm.Unqualified, IsNullable=false)]
+        public MetaDataType[] metadata {
+            get {
+                return this.metadataField;
+            }
+            set {
+                this.metadataField = value;
+                this.RaisePropertyChanged("metadata");
+            }
+        }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
@@ -222,13 +252,74 @@ namespace ZippingWorker_Service.Model {
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
     [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
+    public partial class MetaDataType : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private string nameField;
+        
+        private string valueField;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string name {
+            get {
+                return this.nameField;
+            }
+            set {
+                this.nameField = value;
+                this.RaisePropertyChanged("name");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string value {
+            get {
+                return this.valueField;
+            }
+            set {
+                this.valueField = value;
+                this.RaisePropertyChanged("value");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.8.9037.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
     public partial class FileInfoType : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private MetaDataType[] metadataField;
         
         private string filelocationField;
         
         private string filehashField;
         
         private string internalziplocationField;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("data", Form=System.Xml.Schema.XmlSchemaForm.Unqualified, IsNullable=false)]
+        public MetaDataType[] metadata {
+            get {
+                return this.metadataField;
+            }
+            set {
+                this.metadataField = value;
+                this.RaisePropertyChanged("metadata");
+            }
+        }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]

@@ -1,3 +1,4 @@
+using Microsoft.VisualBasic;
 using Prometheus;
 
 namespace ZippingWorker_Service.Services
@@ -7,6 +8,7 @@ namespace ZippingWorker_Service.Services
         void RecordZipRequested();
         void RecordZipRequestQueued();
         void RecordZipRequestStarted();
+        void RecordZipMetadata(string key, string value);
         void RecordZipRequestCompleted(bool success, double durationSeconds, long zipSizeBytes, int fileCount);
         void RecordZipValidation(bool passed, double durationSeconds);
         void RecordFileDeletion(int successCount, int failedCount);
@@ -17,6 +19,8 @@ namespace ZippingWorker_Service.Services
 
     public class MetricsService : IMetricsService
     {
+        private readonly Configuration.ZippingWorker_ServiceConfigurationType _config;
+
         // Counters
         private static readonly Counter ZipRequested = Metrics.CreateCounter(
             "zipping_requests_total",
@@ -29,6 +33,11 @@ namespace ZippingWorker_Service.Services
         private static readonly Counter ZipRequestsStarted = Metrics.CreateCounter(
             "zipping_requests_started_total",
             "Total number of zip requests started processing");
+
+        public static readonly Counter ZipRequestsDataCounts = Metrics.CreateCounter(
+            "zipping_requests_data_counts_total",
+            "Total number value of key type pairs",
+            new CounterConfiguration { LabelNames = new[] { "key", "value" } });
 
         private static readonly Counter ZipRequestsCompleted = Metrics.CreateCounter(
             "zipping_requests_completed_total",
@@ -101,7 +110,10 @@ namespace ZippingWorker_Service.Services
             // Static constructor to ensure metrics are registered with Prometheus
             // This forces initialization of all static readonly fields when the type is first accessed
         }
-
+        public MetricsService(Configuration.ZippingWorker_ServiceConfigurationType config)
+        {
+            _config = config;
+        }
         public void RecordZipRequested()
         {
             ZipRequested.Inc();
@@ -115,6 +127,22 @@ namespace ZippingWorker_Service.Services
         public void RecordZipRequestStarted()
         {
             ZipRequestsStarted.Inc();
+        }
+        public void RecordZipMetadata(string key, string value)
+        {
+            if (_config.metadatalogging != null)
+            {
+                foreach (var data in _config.metadatalogging)
+                {
+                    if (data.key == key)
+                    {
+                        if (String.IsNullOrEmpty(data.value) || data.value == value)
+                        {
+                            ZipRequestsDataCounts.WithLabels(key, value).Inc();
+                        }
+                    }
+                }
+            }
         }
 
         public void RecordZipRequestCompleted(bool success, double durationSeconds, long zipSizeBytes, int fileCount)

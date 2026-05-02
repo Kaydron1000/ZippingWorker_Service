@@ -25,7 +25,21 @@
 		</xs:restriction>
 	</xs:simpleType>
 	
+	<xs:complexType name="MetaDataType">
+		<xs:attribute name="key" type="xs:string" use="required"/>
+		<xs:attribute name="value" type="xs:string" use="optional"/>
+	</xs:complexType>
+	
+	<xs:complexType name="MetaDataDictType">
+		<xs:sequence>
+			<xs:element name="data" type="MetaDataType" minOccurs="1" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	
 	<xs:complexType name="ZippingWorker_ServiceConfigurationType">
+		<xs:all>
+			<xs:element name="metadatalogging" type="MetaDataDictType" minOccurs="0"></xs:element>
+		</xs:all>
 		<xs:attribute name="serviceport"							type="xs:int"					default="5000"					use="optional"/>
 		<xs:attribute name="sevenzipexepath"						type="xs:string"				default="7z.exe"				use="optional"/>
 		<xs:attribute name="tempdir_symlink"						type="xs:string"				default="%APPPATH%\tempsymlink"	use="optional"/>

@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<zippingworker_serviceconfiguration
+<a:zippingworker_serviceconfiguration xmlns:a="http://tempuri.org/ZippingWorker_ServiceConfigurationSchema.xsd"
 	serviceport="5000"
     sevenzipexepath="7z.exe"
 	tempdir_symlink="%APPPATH%\tempsymlink"
 	tempdir_zipstaging="%APPPATH%\tempzip"
     archiver="sevenzip"
-    compressionlevel="ultra"/>
+    compressionlevel="ultra">
+	<metadatalogging>
+		<data key="exampleKey"/>
+	</metadatalogging>
+</a:zippingworker_serviceconfiguration>
