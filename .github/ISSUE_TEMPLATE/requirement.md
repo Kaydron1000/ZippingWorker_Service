@@ -1,3 +1,9 @@
+---
+name: Requirement
+about: Create a requirement
+title: "[REQ] "
+labels: requirement
+---
 ## Requirement
 ### Statement
 Short, clear statement of what is needed.
