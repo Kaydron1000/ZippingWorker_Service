@@ -60,6 +60,9 @@ namespace ZippingWorker_Service
             var startTime = DateTime.UtcNow;
             _metrics.RecordZipRequestStarted();
 
+            // Use configuration snapshot from the request
+            var config = request.Configuration;
+
             _logger.LogInformation("Processing zip request for output: {OutputPath}", request.OutputArchivePath);
 
             // Calculate hashes for files that don't have them (if validation is enabled)
@@ -85,8 +88,8 @@ namespace ZippingWorker_Service
             }
 
             // Getting final zip path and ensure it has the correct extension based on the archiver type
-            FilePathManger filePathManger = new FilePathManger(_config, _logger, request.OutputArchivePath);
-            
+            FilePathManger filePathManger = new FilePathManger(config, _logger, request.OutputArchivePath);
+
             _logger.LogInformation("Using file staging location for zipping: {StageDirectory}", filePathManger.StageFilesDirectory);
 
             //_logger.LogInformation("Zipping to location: {ZipPath}", zipPath);
@@ -94,7 +97,7 @@ namespace ZippingWorker_Service
             // validate yes no
             // validate move yes no
             string zipPath = filePathManger.ArchiveFilePath;
-            if (_config.usestaging)
+            if (config.usestaging)
                 zipPath = filePathManger.StageZipPath;
 
             var archiver = _archiverFactory.CreateArchiver();
@@ -186,7 +189,7 @@ namespace ZippingWorker_Service
                     }
                 }
 
-                await RenameZippedItem(sevenZipExePath: _config.sevenzipexepath, zipFilePath: zipPath,
+                await RenameZippedItem(sevenZipExePath: config.sevenzipexepath, zipFilePath: zipPath,
                                        origfldFileName: filePathManger.StageFilesFolder, newfldFileName: filePathManger.RenameTopInternalZipFolderName,
                                        onLog: (message) =>
                                        {
@@ -200,7 +203,7 @@ namespace ZippingWorker_Service
 
                 // copy staged zip to final location if staging is enabled and validate copy, otherwise it's already at final location
                 // If staging is not used, the zip is already at the final location and can skip the copy and verification steps
-                if (_config.usestaging)
+                if (config.usestaging)
                 {
                     // Copy from staging to final location with hash verification
                     _logger.LogInformation("Computing hash of zip package...");

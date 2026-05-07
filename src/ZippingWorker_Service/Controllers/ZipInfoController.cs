@@ -17,6 +17,7 @@ namespace ZippingWorker_Service.Controllers
         private readonly IDriveLetterResolver _driveResolver;
         private readonly IMetricsService _metrics;
         private readonly ILogger<ZipInfoController> _logger;
+        private readonly ZippingWorker_ServiceConfigurationType _config;
 
         private XmlSchemaSet _SchemaSet;
         private XmlOnDeserializedSerializer _Serializer;
@@ -25,12 +26,14 @@ namespace ZippingWorker_Service.Controllers
             IZipRequestQueue zipQueue, 
             IDriveLetterResolver driveResolver,
             IMetricsService metrics,
-            ILogger<ZipInfoController> logger)
+            ILogger<ZipInfoController> logger,
+            ZippingWorker_ServiceConfigurationType config)
         {
             _zipQueue = zipQueue;
             _driveResolver = driveResolver;
             _metrics = metrics;
             _logger = logger;
+            _config = config;
 
             _SchemaSet = XmlExtensions.LoadSchemaSet("ZippingWorker_Service", "ZipInfoSchema.xsd");
             _Serializer = new XmlOnDeserializedSerializer(typeof(ZipInfoType));
@@ -204,7 +207,8 @@ namespace ZippingWorker_Service.Controllers
                 OutputArchivePath = outputPath,
                 CompressionLevel = MapCompressionLevel(zipInfo.zipcompressionlevel),
                 ValidateZipping = zipInfo.validatezipping,
-                DeleteInputFiles = zipInfo.deleteinputfiles
+                DeleteInputFiles = zipInfo.deleteinputfiles,
+                Configuration = _config.DeepCopy() // Snapshot of current configuration
             };
 
             await _zipQueue.EnqueueAsync(zipRequest);

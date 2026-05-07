@@ -16,10 +16,14 @@ public class ConfigurationController : ControllerBase
     private readonly ILogger<ConfigurationController> _logger;
     private readonly string _configPath;
     private readonly object _configLock = new();
+    private readonly ZippingWorker_ServiceConfigurationType _config;
 
-    public ConfigurationController(ILogger<ConfigurationController> logger)
+    public ConfigurationController(
+        ILogger<ConfigurationController> logger,
+        ZippingWorker_ServiceConfigurationType config)
     {
         _logger = logger;
+        _config = config;
         _configPath = Path.Combine(AppContext.BaseDirectory, "config.xml");
     }
 
@@ -67,7 +71,10 @@ public class ConfigurationController : ControllerBase
     /// <param name="serviceport">Service listening port (integer)</param>
     /// <param name="sevenzipexepath">Path to 7z.exe (string)</param>
     /// <param name="tempdir_symlink">Temporary directory for symlinks (string)</param>
+    /// <param name="tempdir_symlink_createIfNotExist">Create symlink temp directory if it doesn't exist (boolean)</param>
     /// <param name="tempdir_zipstaging">Staging directory for zip creation (string)</param>
+    /// <param name="tempdir_zipstaging_createIfNotExist">Create zip staging directory if it doesn't exist (boolean)</param>
+    /// <param name="usestaging">Use staging directory for zip creation (boolean)</param>
     /// <param name="archiver">Archiver type: sevenzip or dotnetzip (string)</param>
     /// <param name="compressionlevel">Compression level: nocompression, fastest, fast, normal, maximum, ultra (string)</param>
     [HttpPut]
@@ -78,7 +85,10 @@ public class ConfigurationController : ControllerBase
         [FromQuery] int? serviceport,
         [FromQuery] string? sevenzipexepath,
         [FromQuery] string? tempdir_symlink,
+        [FromQuery] bool? tempdir_symlink_createIfNotExist,
         [FromQuery] string? tempdir_zipstaging,
+        [FromQuery] bool? tempdir_zipstaging_createIfNotExist,
+        [FromQuery] bool? usestaging,
         [FromQuery] string? archiver,
         [FromQuery] string? compressionlevel)
     {
@@ -124,10 +134,28 @@ public class ConfigurationController : ControllerBase
                     updates.Add($"tempdir_symlink={tempdir_symlink}");
                 }
 
+                if (tempdir_symlink_createIfNotExist.HasValue)
+                {
+                    config.tempdir_symlink_createIfNotExist = tempdir_symlink_createIfNotExist.Value;
+                    updates.Add($"tempdir_symlink_createIfNotExist={tempdir_symlink_createIfNotExist.Value}");
+                }
+
                 if (!string.IsNullOrWhiteSpace(tempdir_zipstaging))
                 {
                     config.tempdir_zipstaging = tempdir_zipstaging;
                     updates.Add($"tempdir_zipstaging={tempdir_zipstaging}");
+                }
+
+                if (tempdir_zipstaging_createIfNotExist.HasValue)
+                {
+                    config.tempdir_zipstaging_createIfNotExist = tempdir_zipstaging_createIfNotExist.Value;
+                    updates.Add($"tempdir_zipstaging_createIfNotExist={tempdir_zipstaging_createIfNotExist.Value}");
+                }
+
+                if (usestaging.HasValue)
+                {
+                    config.usestaging = usestaging.Value;
+                    updates.Add($"usestaging={usestaging.Value}");
                 }
 
                 if (!string.IsNullOrWhiteSpace(archiver))
@@ -167,11 +195,15 @@ public class ConfigurationController : ControllerBase
                 // Save to file
                 xmlDoc.Save(_configPath);
 
-                _logger.LogInformation("Configuration updated: {Updates}", string.Join(", ", updates));
+                // Apply changes to the running service's configuration singleton
+                // New requests will immediately use these values
+                ApplyConfigurationChanges(config);
+
+                _logger.LogInformation("Configuration updated and applied: {Updates}", string.Join(", ", updates));
 
                 return Ok(new
                 {
-                    Message = "Configuration updated successfully. Restart service to apply changes.",
+                    Message = "Configuration updated successfully. Changes applied to new requests immediately. Note: serviceport changes require service restart.",
                     UpdatedAttributes = updates,
                     CurrentConfiguration = MapToResponse(config)
                 });
@@ -191,7 +223,10 @@ public class ConfigurationController : ControllerBase
             ServicePort = config.serviceport,
             SevenZipExePath = config.sevenzipexepath ?? string.Empty,
             TempDir_SymLink = config.tempdir_symlink ?? string.Empty,
+            TempDir_SymLink_CreateIfNotExist = config.tempdir_symlink_createIfNotExist,
             TempDir_ZipStaging = config.tempdir_zipstaging ?? string.Empty,
+            TempDir_ZipStaging_CreateIfNotExist = config.tempdir_zipstaging_createIfNotExist,
+            UseStaging = config.usestaging,
             Archiver = config.archiver.ToString(),
             CompressionLevel = config.compressionlevel.ToString(),
             ResolvedSevenZipExePath = config.ResolvedSevenZipExePath ?? string.Empty,
@@ -216,7 +251,10 @@ public class ConfigurationController : ControllerBase
         SetAttribute(root, "serviceport", config.serviceport.ToString());
         SetAttribute(root, "sevenzipexepath", config.sevenzipexepath);
         SetAttribute(root, "tempdir_symlink", config.tempdir_symlink);
+        SetAttribute(root, "tempdir_symlink_createIfNotExist", config.tempdir_symlink_createIfNotExist.ToString().ToLowerInvariant());
         SetAttribute(root, "tempdir_zipstaging", config.tempdir_zipstaging);
+        SetAttribute(root, "tempdir_zipstaging_createIfNotExist", config.tempdir_zipstaging_createIfNotExist.ToString().ToLowerInvariant());
+        SetAttribute(root, "usestaging", config.usestaging.ToString().ToLowerInvariant());
         SetAttribute(root, "archiver", config.archiver.ToString());
         SetAttribute(root, "compressionlevel", config.compressionlevel.ToString());
     }
@@ -233,6 +271,29 @@ public class ConfigurationController : ControllerBase
             element.Add(new XAttribute(name, value));
         }
     }
+
+    /// <summary>
+    /// Applies configuration changes to the running service's singleton instance.
+    /// This allows new requests to immediately use updated configuration without restart.
+    /// </summary>
+    private void ApplyConfigurationChanges(ZippingWorker_ServiceConfigurationType source)
+    {
+        _config.serviceport = source.serviceport;
+        _config.sevenzipexepath = source.sevenzipexepath;
+        _config.tempdir_symlink = source.tempdir_symlink;
+        _config.tempdir_symlink_createIfNotExist = source.tempdir_symlink_createIfNotExist;
+        _config.tempdir_zipstaging = source.tempdir_zipstaging;
+        _config.tempdir_zipstaging_createIfNotExist = source.tempdir_zipstaging_createIfNotExist;
+        _config.usestaging = source.usestaging;
+        _config.archiver = source.archiver;
+        _config.compressionlevel = source.compressionlevel;
+
+        // Copy metadata if present
+        if (source.metadatalogging != null)
+        {
+            _config.metadatalogging = source.metadatalogging;
+        }
+    }
 }
 
 public class ConfigurationResponse
@@ -240,7 +301,10 @@ public class ConfigurationResponse
     public int ServicePort { get; set; }
     public string SevenZipExePath { get; set; } = string.Empty;
     public string TempDir_SymLink { get; set; } = string.Empty;
+    public bool TempDir_SymLink_CreateIfNotExist { get; set; }
     public string TempDir_ZipStaging { get; set; } = string.Empty;
+    public bool TempDir_ZipStaging_CreateIfNotExist { get; set; }
+    public bool UseStaging { get; set; }
     public string Archiver { get; set; } = string.Empty;
     public string CompressionLevel { get; set; } = string.Empty;
 

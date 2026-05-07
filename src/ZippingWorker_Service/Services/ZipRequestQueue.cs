@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using ZippingWorker_Service.Configuration;
 using ZippingWorker_Service.Zipping;
 
 namespace ZippingWorker_Service.Services
@@ -10,6 +11,12 @@ namespace ZippingWorker_Service.Services
         public ArchiveCompressionLevel CompressionLevel { get; set; } = ArchiveCompressionLevel.ultra;
         public bool ValidateZipping { get; set; } = true;
         public bool DeleteInputFiles { get; set; } = false;
+
+        /// <summary>
+        /// Snapshot of the configuration at the time this request was created.
+        /// Ensures in-flight requests continue with their original configuration.
+        /// </summary>
+        public ZippingWorker_ServiceConfigurationType Configuration { get; set; } = new();
     }
 
     public class ZipFileEntry

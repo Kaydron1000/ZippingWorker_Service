@@ -136,6 +136,38 @@ namespace ZippingWorker_Service.Configuration
                 }
             }
         }
+
+        /// <summary>
+        /// Creates a deep copy of the configuration for capturing a snapshot.
+        /// This ensures in-flight requests continue with their original configuration.
+        /// </summary>
+        public ZippingWorker_ServiceConfigurationType DeepCopy()
+        {
+            var copy = new ZippingWorker_ServiceConfigurationType
+            {
+                serviceport = this.serviceport,
+                sevenzipexepath = this.sevenzipexepath,
+                tempdir_symlink = this.tempdir_symlink,
+                tempdir_symlink_createIfNotExist = this.tempdir_symlink_createIfNotExist,
+                tempdir_zipstaging = this.tempdir_zipstaging,
+                tempdir_zipstaging_createIfNotExist = this.tempdir_zipstaging_createIfNotExist,
+                usestaging = this.usestaging,
+                archiver = this.archiver,
+                compressionlevel = this.compressionlevel
+            };
+
+            // Copy metadata if present
+            if (this.metadatalogging != null && this.metadatalogging.Length > 0)
+            {
+                copy.metadatalogging = this.metadatalogging.Select(d => new MetaDataType
+                {
+                    key = d.key,
+                    value = d.value
+                }).ToArray();
+            }
+
+            return copy;
+        }
     }
 
 }
