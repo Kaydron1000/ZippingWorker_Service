@@ -46,6 +46,7 @@
 		<xs:attribute name="tempdir_symlink_createIfNotExist"		type="xs:boolean"				default="true"					use="optional"/>
 		<xs:attribute name="tempdir_zipstaging"						type="xs:string"				default="%APPPATH%\tempzip"		use="optional"/>
 		<xs:attribute name="tempdir_zipstaging_createIfNotExist"	type="xs:boolean"				default="true"					use="optional"/>
+		<xs:attribute name="usestaging"								type="xs:boolean"				default="true"					use="optional"/>
 		<xs:attribute name="archiver"								type="ArchiverEnumType"			default="sevenzip"				use="optional"/>
 		<xs:attribute name="compressionlevel"						type="CompressionLevelEnumType" default="ultra"					use="optional"/>
 	</xs:complexType>

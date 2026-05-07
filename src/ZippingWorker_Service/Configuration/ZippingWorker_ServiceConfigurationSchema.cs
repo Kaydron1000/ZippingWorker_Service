@@ -38,6 +38,8 @@ namespace ZippingWorker_Service.Configuration {
         
         private bool tempdir_zipstaging_createIfNotExistField;
         
+        private bool usestagingField;
+        
         private ArchiverEnumType archiverField;
         
         private CompressionLevelEnumType compressionlevelField;
@@ -49,6 +51,7 @@ namespace ZippingWorker_Service.Configuration {
             this.tempdir_symlink_createIfNotExistField = true;
             this.tempdir_zipstagingField = "%APPPATH%\\tempzip";
             this.tempdir_zipstaging_createIfNotExistField = true;
+            this.usestagingField = true;
             this.archiverField = ArchiverEnumType.sevenzip;
             this.compressionlevelField = CompressionLevelEnumType.ultra;
         }
@@ -141,6 +144,19 @@ namespace ZippingWorker_Service.Configuration {
             set {
                 this.tempdir_zipstaging_createIfNotExistField = value;
                 this.RaisePropertyChanged("tempdir_zipstaging_createIfNotExist");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(true)]
+        public bool usestaging {
+            get {
+                return this.usestagingField;
+            }
+            set {
+                this.usestagingField = value;
+                this.RaisePropertyChanged("usestaging");
             }
         }
         
