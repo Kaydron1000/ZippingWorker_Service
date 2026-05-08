@@ -94,7 +94,7 @@ namespace ZippingWorker_Service.Services
                 }
 
                 // Create temp directory for extraction
-                tempExtractPath = Path.Combine(Path.GetDirectoryName(zipPath), $"zipvalidation_{Guid.NewGuid():N}");
+                tempExtractPath = Path.Combine(Path.GetDirectoryName(zipPath), $"zipvalidation_{Extensions.GenerateShortId()}");
                 Directory.CreateDirectory(tempExtractPath);
 
                 _logger.LogInformation("Extracting archive to temp location for validation: {TempPath}", tempExtractPath);

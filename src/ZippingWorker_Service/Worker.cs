@@ -457,6 +457,12 @@ namespace ZippingWorker_Service
         /// </summary>
         /// <remarks>This identifier is used to create unique staging paths for each operation. It can be
         /// used to distinguish between multiple concurrent or sequential zip operations.</remarks>
+        /// <summary>
+        /// Gets the unique 6-character identifier for this zip operation.
+        /// </summary>
+        /// <remarks>This short alphanumeric ID (e.g., "A3K9M2") is used to create unique staging paths 
+        /// and prevent conflicts between concurrent operations. While not a true GUID, it provides 
+        /// sufficient uniqueness (36^6 ≈ 2.2 billion combinations) for temporary file operations.</remarks>
         public string GUID { get; private set; } // Unique identifier for this zip operation, used to create unique staging paths
         /// <summary>
         /// Gets the directory path where the zip file is created during the staging process.
@@ -525,7 +531,7 @@ namespace ZippingWorker_Service
             StageFilesRootDirectory = _config.ResolvedTempDir_SymLink;
             StageZipDirectory = _config.ResolvedTempDir_ZipStaging;
 
-            GUID = Guid.NewGuid().ToString("N");
+            GUID = Extensions.GenerateShortId();
             StageZipName = ArchiveFileNameWithoutExtension + "_" + GUID + ArchiveExtension;
             StageZipPath = Path.Combine(StageZipDirectory, StageZipName);
             StageFilesFolder = ArchiveFileNameWithoutExtension + "_" + GUID;
