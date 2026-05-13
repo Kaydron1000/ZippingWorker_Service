@@ -120,10 +120,14 @@ namespace ZippingWorker_Service.Services
                     if (!File.Exists(extractedFilePath))
                     {
                         result.IsValid = false;
-                        result.Errors.Add($"File not found in archive: {inernalFilePath}");
+                        result.Errors.Add($"Extracted File not found in archive: {extractedFilePath}");
+                        _logger.LogError($"Extracted File not found in archive: {extractedFilePath}");
                         _logger.LogError("Validation failed: File not extracted: {ArchivePath}", inernalFilePath);
                         continue;
                     }
+
+
+                    _logger.LogInformation("Processing file for validation. Filepath: {filepath}.", extractedFilePath);
 
                     // Validate hash
                     var expectedHash = expectedFile.Hash;
@@ -142,6 +146,7 @@ namespace ZippingWorker_Service.Services
                             continue;
                         }
                     }
+
 
                     var extractedHash = await ComputeFileHashAsync(extractedFilePath, cancellationToken);
 

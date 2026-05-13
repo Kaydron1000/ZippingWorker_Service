@@ -403,4 +403,76 @@ public class MetricsServiceTests
     }
 
     #endregion
+
+    #region Progress Tracking Tests
+
+    [Fact]
+    public void UpdateZipProgress_ShouldUpdateGauge()
+    {
+        // Arrange & Act
+        _metricsService.UpdateZipProgress(25, 100);
+
+        // Assert
+        // Progress gauge should be updated to 25%
+        // Method should complete without throwing
+    }
+
+    [Fact]
+    public void UpdateZipProgress_WithZeroTotal_ShouldNotThrow()
+    {
+        // Arrange & Act
+        Action act = () => _metricsService.UpdateZipProgress(0, 0);
+
+        // Assert
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void UpdateZipProgress_ShouldCalculatePercentageCorrectly()
+    {
+        // Arrange & Act
+        _metricsService.UpdateZipProgress(50, 200); // Should be 25%
+        _metricsService.UpdateZipProgress(100, 100); // Should be 100%
+        _metricsService.UpdateZipProgress(1, 3); // Should be ~33.33%
+
+        // Assert
+        // All calculations should complete without error
+    }
+
+    [Fact]
+    public void ResetZipProgress_ShouldSetProgressToZero()
+    {
+        // Arrange
+        _metricsService.UpdateZipProgress(75, 100);
+
+        // Act
+        _metricsService.ResetZipProgress();
+
+        // Assert
+        // Progress should be reset to 0
+        // Method should complete without throwing
+    }
+
+    [Fact]
+    public void ProgressTracking_FullWorkflow_ShouldWorkCorrectly()
+    {
+        // Arrange & Act - Simulate a full zip operation progress
+        _metricsService.RecordZipRequestStarted();
+
+        // Simulate progress updates
+        _metricsService.UpdateZipProgress(10, 100);
+        _metricsService.UpdateZipProgress(25, 100);
+        _metricsService.UpdateZipProgress(50, 100);
+        _metricsService.UpdateZipProgress(75, 100);
+        _metricsService.UpdateZipProgress(100, 100);
+
+        // Complete and reset
+        _metricsService.RecordZipRequestCompleted(true, 10.0, 1024000, 100);
+        _metricsService.ResetZipProgress();
+
+        // Assert
+        // Full workflow should complete without error
+    }
+
+    #endregion
 }

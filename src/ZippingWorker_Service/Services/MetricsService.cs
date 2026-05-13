@@ -15,6 +15,8 @@ namespace ZippingWorker_Service.Services
         void RecordCopyVerification(bool success);
         int GetQueueDepth();
         void SetQueueDepth(int depth);
+        void UpdateZipProgress(int current, int total);
+        void ResetZipProgress();
     }
 
     public class MetricsService : IMetricsService
@@ -63,6 +65,10 @@ namespace ZippingWorker_Service.Services
         private static readonly Gauge QueueDepth = Metrics.CreateGauge(
             "zipping_queue_depth",
             "Current number of zip requests in queue");
+
+        private static readonly Gauge CurrentZipProgress = Metrics.CreateGauge(
+            "zipping_current_progress_percent",
+            "Current progress percentage of active zip operation (0-100)");
 
         private static readonly Gauge LastZipSizeBytes = Metrics.CreateGauge(
             "zipping_last_zip_size_bytes",
@@ -184,6 +190,20 @@ namespace ZippingWorker_Service.Services
         public void SetQueueDepth(int depth)
         {
             QueueDepth.Set(depth);
+        }
+
+        public void UpdateZipProgress(int current, int total)
+        {
+            if (total > 0)
+            {
+                double percentage = (double)current / total * 100.0;
+                CurrentZipProgress.Set(percentage);
+            }
+        }
+
+        public void ResetZipProgress()
+        {
+            CurrentZipProgress.Set(0);
         }
     }
 }

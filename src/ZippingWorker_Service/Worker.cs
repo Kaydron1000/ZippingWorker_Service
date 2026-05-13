@@ -60,10 +60,12 @@ namespace ZippingWorker_Service
             var startTime = DateTime.UtcNow;
             _metrics.RecordZipRequestStarted();
 
-            // Use configuration snapshot from the request
-            var config = request.Configuration;
+            try
+            {
+                // Use configuration snapshot from the request
+                var config = request.Configuration;
 
-            _logger.LogInformation("Processing zip request for output: {OutputPath}", request.OutputArchivePath);
+                _logger.LogInformation("Processing zip request for output: {OutputPath}", request.OutputArchivePath);
 
             // Calculate hashes for files that don't have them (if validation is enabled)
             if (request.ValidateZipping)
@@ -113,9 +115,32 @@ namespace ZippingWorker_Service
                 filePathManger.StageFilesDirectory,
                 zipPath,
                 request.CompressionLevel,
-                onProgress: (current, total, path) =>
+                onProgress: (current, total, path, logType) =>
                 {
-                    _logger.LogInformation("Progress: {Current}/{Total} - {Path}", current, total, path);
+                    _metrics.UpdateZipProgress(current, total);
+
+                    // Log differently based on operation type
+                    switch (logType)
+                    {
+                        case "LinkAdd":
+                            _logger.LogInformation("Symlink Created: {Current}/{Total} ({Percent:F1}%) - {Path}", 
+                                current, total, (double)current / total * 100.0, path);
+                            break;
+                        case "LinkInfo":
+                            _logger.LogDebug("Symlink Info: {Path}", path);
+                            break;
+                        case "ZipAdd":
+                            _logger.LogInformation("Compressing: {Current}/{Total} ({Percent:F1}%) - {Path}", 
+                                current, total, (double)current / total * 100.0, path);
+                            break;
+                        case "ZipInfo":
+                            _logger.LogDebug("7z Info: {Path}", path);
+                            break;
+                        default:
+                            _logger.LogInformation("Progress: {Current}/{Total} ({Percent:F1}%) - {Path} [{Type}]", 
+                                current, total, (double)current / total * 100.0, path, logType);
+                            break;
+                    }
                 },
                 onLog: (message) =>
                 {
@@ -263,6 +288,12 @@ namespace ZippingWorker_Service
                 _logger.LogError("Zip file was not created at: {Path}", zipPath);
                 var duration = (DateTime.UtcNow - startTime).TotalSeconds;
                 _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
+            }
+            }
+            finally
+            {
+                // Reset progress gauge when request completes (success or failure)
+                _metrics.ResetZipProgress();
             }
         }
 

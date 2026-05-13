@@ -37,6 +37,9 @@ GET http://localhost:{configured_port}/metrics
 - **`zipping_queue_depth`**  
   Current number of zip requests waiting in queue
 
+- **`zipping_current_progress_percent`**  
+  Current progress percentage of the active zip operation (0-100). Shows real-time archiving progress. Resets to 0 when no operation is in progress.
+
 - **`zipping_last_zip_size_bytes`**  
   Size of the most recently created zip file in bytes
 
