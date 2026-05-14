@@ -50,7 +50,7 @@ namespace ZippingWorker_Service.Zipping
                     int overallCurrent = (int)((symlinkCount * 0.15) + (compressedFileCount * 0.85));
 
                     // Report progress with ZipAdd type
-                    onProgress?.Invoke(overallCurrent, totalFiles, line.Length > 2 ? line.Substring(2).Trim() : "", "ZipAdd");
+                    onProgress?.Invoke(overallCurrent, totalFiles*2, line.Length > 2 ? line.Substring(2).Trim() : "", "ZipAdd");
                 }
             }
         }
@@ -111,11 +111,11 @@ namespace ZippingWorker_Service.Zipping
                                     continue;
                                 }
                                 // Report detailed info about the link created (full paths)
-                                onProgress?.Invoke(index, files.Count, $"{linkPath} -> {source}", "LinkInfo");
+                                onProgress?.Invoke(index, files.Count*2, $"{linkPath} -> {source}", "LinkInfo");
                             }
                             index++;
                             // Report progress for this symlink
-                            onProgress?.Invoke(index, files.Count, archivePath, "LinkAdd");
+                            onProgress?.Invoke(index, files.Count*2, archivePath, "LinkAdd");
                             onLog?.Invoke($" Linked: {archivePath}");
                         }
                         catch (Exception ex)

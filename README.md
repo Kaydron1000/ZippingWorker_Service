@@ -52,6 +52,28 @@ The service will start on `http://localhost:5000` (or the configured port).
 
 ## API Endpoints
 
+### Health Check - `/api/health/ping`
+
+**Endpoint**: `GET /api/health/ping`
+
+Simple health check endpoint to verify the server is responsive. Useful for monitoring and client connectivity checks.
+
+**Response**: Plain text `"pong"`
+
+**Example with curl**:
+```bash
+curl http://localhost:5000/api/health/ping
+# Response: pong
+```
+
+**Example with PowerShell**:
+```powershell
+Invoke-RestMethod -Uri "http://localhost:5000/api/health/ping" -Method Get
+# Response: pong
+```
+
+---
+
 ### 1. Simple JSON API - `/api/zip`
 
 **Endpoint**: `POST /api/zip`

@@ -102,6 +102,17 @@ Both libraries are based on the `ZipInfoSchema.xsd` schema which defines:
 
 The ZippingWorkerService exposes the following endpoints:
 
+### GET /api/health/ping
+Simple health check endpoint to verify the server is responsive.
+
+**Returns:** Plain text response "pong"
+
+**Example using curl:**
+```bash
+curl http://localhost:5000/api/health/ping
+# Response: pong
+```
+
 ### POST /api/zipinfo/binary
 Accepts XML-serialized `ZipInfoType` as binary content.
 

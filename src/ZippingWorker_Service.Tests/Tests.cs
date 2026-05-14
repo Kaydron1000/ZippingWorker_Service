@@ -22,9 +22,9 @@ namespace ZippingWorker_Service.Tests
             //zipQueueMock.Awaiting(q => q.Object.EnqueueAsync(It.IsAny<ZipRequest>(), It.IsAny<CancellationToken>())).Should().NotThrow();
             Moq.IMock<IDriveLetterResolver> driveResolverMock = new Moq.Mock<IDriveLetterResolver>();
             Moq.IMock<IMetricsService> metricsMock = new Moq.Mock<IMetricsService>();
-            Moq.IMock<Microsoft.Extensions.Logging.ILogger<Controllers.ZipInfoController>> loggerMock = new Moq.Mock<Microsoft.Extensions.Logging.ILogger<Controllers.ZipInfoController>>();
+            Moq.IMock<Microsoft.Extensions.Logging.ILogger<ZipInfoController>> loggerMock = new Moq.Mock<Microsoft.Extensions.Logging.ILogger<ZipInfoController>>();
             var config = new Configuration.ZippingWorker_ServiceConfigurationType();
-            Controllers.ZipInfoController zipInfoController = new Controllers.ZipInfoController(zipQueueMock.Object, driveResolverMock.Object, metricsMock.Object, loggerMock.Object, config);
+            ZipInfoController zipInfoController = new ZipInfoController(zipQueueMock.Object, driveResolverMock.Object, metricsMock.Object, loggerMock.Object, config);
             string xmldata = 
                 @"<ZipInfoType>
                     <CompressionLevel>Fastest</CompressionLevel>
