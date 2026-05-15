@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Diagnostics.Eventing.Reader;
+using ZippingWorker_Service.Model;
 
 namespace ZippingWorker_Service.Zipping
 {
@@ -53,7 +54,7 @@ namespace ZippingWorker_Service.Zipping
 
 
                     // Report progress with ZipAdd type
-                    onProgress?.Invoke(compressedFileCount, totalFiles, line.Length > 2 ? line.Substring(2).Trim() : "", logType);
+                    onProgress?.Invoke(compressedFileCount, totalFiles, line.Length > 2 ? line.Substring(2).Trim() : "", logType, null);
                 }
             }
         }
@@ -115,11 +116,11 @@ namespace ZippingWorker_Service.Zipping
                                     continue;
                                 }
                                 // Report detailed info about the link created (full paths)
-                                onProgress?.Invoke(index, files.Count, $"{linkPath} -> {source}", "LinkInfo");
+                                onProgress?.Invoke(index, files.Count, $"{linkPath} -> {source}", "LinkInfo", null);
                             }
                             index++;
                             // Report progress for this symlink
-                            onProgress?.Invoke(index, files.Count, archivePath, "LinkAdd");
+                            onProgress?.Invoke(index, files.Count, archivePath, "LinkAdd", null);
                             onLog?.Invoke($" Linked: {archivePath}");
                         }
                         catch (Exception ex)
@@ -186,7 +187,8 @@ namespace ZippingWorker_Service.Zipping
                 if (zipperIntegrityCheck)
                 {
                     onLog?.Invoke("[7z] Integrity check...");
-
+                    ZipValidation zipval = new ZipValidation();
+                    zipval.StartTime = DateTime.Now;
                     string arguments2 = $"t -bb \"{zipOutputPath}\"";
 
                     var psi2 = new ProcessStartInfo
@@ -227,11 +229,15 @@ namespace ZippingWorker_Service.Zipping
                         {
                             var ex = new Exception($"7z exited with code {process.ExitCode}:\n{stderr}");
                             onError?.Invoke(ex);
+                            zipval.Success = false;
                         }
                         else
                         {
                             onLog?.Invoke("[7z] Archive integrity check completed successfully.");
+                            zipval.Success = true;
                         }
+                        zipval.FinishTime = DateTime.Now;
+                        onProgress?.Invoke(0, 0, "", "ValidationResult", zipval);
                     }
                 }
             }

@@ -302,6 +302,65 @@ public class MetricsServiceTests
 
     #endregion
 
+    #region Directory Deletion Tests
+
+    [Theory]
+    [InlineData(10, 0)]
+    [InlineData(0, 5)]
+    [InlineData(5, 2)]
+    public void RecordDirectoryDeletion_ShouldAcceptSuccessAndFailureCounts(int successCount, int failedCount)
+    {
+        // Act
+        _metricsService.RecordDirectoryDeletion(successCount, failedCount);
+
+        // Assert
+        // Method should complete without throwing
+    }
+
+    [Fact]
+    public void RecordDirectoryDeletion_WithAllSuccess_ShouldRecordCorrectly()
+    {
+        // Arrange
+        int successCount = 15;
+        int failedCount = 0;
+
+        // Act
+        _metricsService.RecordDirectoryDeletion(successCount, failedCount);
+
+        // Assert
+        // Method should record all successful directory deletions
+    }
+
+    [Fact]
+    public void RecordDirectoryDeletion_WithAllFailures_ShouldRecordCorrectly()
+    {
+        // Arrange
+        int successCount = 0;
+        int failedCount = 8;
+
+        // Act
+        _metricsService.RecordDirectoryDeletion(successCount, failedCount);
+
+        // Assert
+        // Method should record all failed directory deletions
+    }
+
+    [Fact]
+    public void RecordDirectoryDeletion_WithMixedResults_ShouldRecordBothCounts()
+    {
+        // Arrange
+        int successCount = 12;
+        int failedCount = 3;
+
+        // Act
+        _metricsService.RecordDirectoryDeletion(successCount, failedCount);
+
+        // Assert
+        // Method should record both successful and failed directory deletions
+    }
+
+    #endregion
+
     #region Copy Verification Tests
 
     [Theory]

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using ZippingWorker_Service.Model;
+using ZippingWorker_Service.Services;
 
 namespace ZippingWorker_Service.Zipping
 {
@@ -12,7 +13,8 @@ namespace ZippingWorker_Service.Zipping
     /// <param name="totalFiles">Total number of items to process</param>
     /// <param name="archivePath">Path or description of the item being processed</param>
     /// <param name="logType">Type of operation: LinkAdd, LinkInfo, ZipAdd, ZipInfo</param>
-    public delegate void ProgressCallback(int currentIndex, int totalFiles, string archivePath, string logType);
+    /// <param name="obj">Additional object for custom data</param>
+    public delegate void ProgressCallback(int currentIndex, int totalFiles, string archivePath, string logType, ZipValidation obj);
 
     public interface IArchiver
     {

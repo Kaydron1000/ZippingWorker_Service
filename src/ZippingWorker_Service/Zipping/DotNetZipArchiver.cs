@@ -40,7 +40,7 @@ namespace ZippingWorker_Service.Zipping
                         }
 
                         count++;
-                        onProgress?.Invoke(count, files.Count, fixedPath, "ZipAdd");
+                        onProgress?.Invoke(count, files.Count, fixedPath, "ZipAdd", null);
                         onLog?.Invoke($"Added: {fixedPath}");
 
                         await Task.Yield(); // yield for UI responsiveness

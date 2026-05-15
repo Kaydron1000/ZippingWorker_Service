@@ -12,6 +12,7 @@ namespace ZippingWorker_Service.Services
         void RecordZipRequestCompleted(bool success, double durationSeconds, long zipSizeBytes, int fileCount);
         void RecordZipValidation(bool passed, double durationSeconds);
         void RecordFileDeletion(int successCount, int failedCount);
+        void RecordDirectoryDeletion(int successCount, int failedCount);
         void RecordCopyVerification(bool success);
         int GetQueueDepth();
         void SetQueueDepth(int depth);
@@ -54,6 +55,11 @@ namespace ZippingWorker_Service.Services
         private static readonly Counter FilesDeleted = Metrics.CreateCounter(
             "zipping_files_deleted_total",
             "Total number of input files deleted",
+            new CounterConfiguration { LabelNames = new[] { "status" } });
+
+        private static readonly Counter DirectoriesDeleted = Metrics.CreateCounter(
+            "zipping_directories_deleted_total",
+            "Total number of directories deleted",
             new CounterConfiguration { LabelNames = new[] { "status" } });
 
         private static readonly Counter CopyVerifications = Metrics.CreateCounter(
@@ -175,6 +181,12 @@ namespace ZippingWorker_Service.Services
         {
             FilesDeleted.WithLabels("success").Inc(successCount);
             FilesDeleted.WithLabels("failed").Inc(failedCount);
+        }
+
+        public void RecordDirectoryDeletion(int successCount, int failedCount)
+        {
+            DirectoriesDeleted.WithLabels("success").Inc(successCount);
+            DirectoriesDeleted.WithLabels("failed").Inc(failedCount);
         }
 
         public void RecordCopyVerification(bool success)

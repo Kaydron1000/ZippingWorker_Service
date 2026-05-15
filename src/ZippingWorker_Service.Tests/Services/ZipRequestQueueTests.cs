@@ -20,7 +20,7 @@ public class ZipRequestQueueTests
                 new ZipFileEntry { SourcePath = @"C:\input\file1.txt", ArchivePath = "file1.txt" }
             },
             CompressionLevel = ArchiveCompressionLevel.normal,
-            DeleteInputFiles = false
+            DeleteInputFiles = Model.DeleteEnumType.none
         };
 
         // Act
@@ -43,7 +43,7 @@ public class ZipRequestQueueTests
                 new ZipFileEntry { SourcePath = @"C:\input\file1.txt", ArchivePath = "file1.txt" }
             },
             CompressionLevel = ArchiveCompressionLevel.normal,
-            DeleteInputFiles = false
+            DeleteInputFiles = Model.DeleteEnumType.none
         };
 
         // Act
@@ -92,8 +92,8 @@ public class ZipRequestQueueTests
         request.Files.Should().BeEmpty();
         request.OutputArchivePath.Should().Be(string.Empty);
         request.CompressionLevel.Should().Be(ArchiveCompressionLevel.ultra);
-        request.ValidateZipping.Should().BeTrue();
-        request.DeleteInputFiles.Should().BeFalse();
+        request.ValidateZipping.Should().Be(Model.ValidateEnumType.extract);
+        request.DeleteInputFiles.Should().Be(Model.DeleteEnumType.none);
     }
 
     [Fact]

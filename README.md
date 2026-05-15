@@ -42,8 +42,50 @@ Edit `config.xml` to configure the service:
 
 ### Starting the Service
 
+**Basic startup:**
 ```bash
 dotnet run
+```
+
+**With custom log level:**
+```bash
+dotnet run --loglevel=Debug
+```
+
+**Available log levels:**
+- `Trace` - Most verbose, shows all log messages
+- `Debug` - Detailed debugging information
+- `Information` - General informational messages (default)
+- `Warning` - Warning messages only
+- `Error` - Error messages only
+- `Critical` - Critical errors only
+- `None` - No logging
+
+**Example with different log levels:**
+```bash
+# Minimal logging (errors and critical only)
+dotnet run --loglevel=Error
+
+# Detailed debugging
+dotnet run --loglevel=Debug
+
+# See everything (very verbose)
+dotnet run --loglevel=Trace
+```
+
+**Running published executable:**
+```bash
+# Windows
+ZippingWorker_Service.exe --loglevel=Debug
+
+# Linux/macOS
+./ZippingWorker_Service --loglevel=Debug
+```
+
+**Running as a Windows Service with custom log level:**
+```powershell
+# Set the log level in the service startup parameters
+sc config "ZippingWorkerService" binPath= "C:\path\to\ZippingWorker_Service.exe --loglevel=Debug"
 ```
 
 The service will start on `http://localhost:5000` (or the configured port).

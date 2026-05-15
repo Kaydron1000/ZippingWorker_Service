@@ -1,10 +1,11 @@
+using Microsoft.VisualBasic.FileIO;
 using System.Diagnostics;
 using ZippingWorker_Service.Configuration;
+using ZippingWorker_Service.Model;
 using ZippingWorker_Service.Services;
 using ZippingWorker_Service.Zipping;
-using Microsoft.VisualBasic.FileIO;
 using static System.Runtime.InteropServices.JavaScript.JSType;
-using ZippingWorker_Service.Model;
+using static ZippingWorker_Service.Zipping.SevenZipSymlinkArchiver;
 
 namespace ZippingWorker_Service
 {
@@ -124,7 +125,7 @@ namespace ZippingWorker_Service
                     zipPath,
                     integrityCheck,
                     request.CompressionLevel,
-                    onProgress: (current, total, path, logType) =>
+                    onProgress: (current, total, path, logType, validationRslt) =>
                     {
                         _metrics.UpdateZipProgress(current, total);
 
@@ -148,6 +149,21 @@ namespace ZippingWorker_Service
                             case "ZipTest":
                                 _logger.LogInformation("Testing archive: {Current}/{Total} ({Percent:F1}%) - {Path}",
                                     current, total, (double)current / total * 100.0, path);
+                                break;
+                            case "ValidationResult":
+                                if (validationRslt is ZipValidation zipValidation)
+                                {
+                                    if (zipValidation.Success)
+                                    {
+                                        _logger.LogInformation("Zip validation PASSED. Duration: {Duration} seconds.", zipValidation.Duration);
+                                        _metrics.RecordZipValidation(true, zipValidation.Duration);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogError("Zip validation FAILED. Duration: {Duration} seconds.", zipValidation.Duration);
+                                        _metrics.RecordZipValidation(false, zipValidation.Duration);
+                                    }
+                                }
                                 break;
                             default:
                                 _logger.LogInformation("Progress: {Current}/{Total} ({Percent:F1}%) - {Path} [{Type}]", 
@@ -189,15 +205,17 @@ namespace ZippingWorker_Service
                         if (!fileReady)
                             throw new Exception("Zip file is not ready or invalid");
 
-                        var validationStartTime = DateTime.UtcNow;
+                        var valRslt = new ZipValidation();
+                        valRslt.StartTime = DateTime.UtcNow;
                         _logger.LogInformation("Starting zip validation...");
                         var validationResult = await _validationService.ValidateZipAsync(
                             zipPath,
                             request.Files,
                             stoppingToken);
 
-                        var validationDuration = (DateTime.UtcNow - validationStartTime).TotalSeconds;
-                        _metrics.RecordZipValidation(validationResult.IsValid, validationDuration);
+                        valRslt.FinishTime = DateTime.UtcNow;
+                        valRslt.Success = validationResult.IsValid;
+                        _metrics.RecordZipValidation(valRslt.Success, valRslt.Duration);
 
                         if (validationResult.IsValid)
                         {
@@ -307,6 +325,7 @@ namespace ZippingWorker_Service
             {
                 // Reset progress gauge when request completes (success or failure)
                 _metrics.ResetZipProgress();
+                _logger.LogInformation("Finished processing request: {Path}", request.OutputArchivePath);
             }
         }
 
@@ -353,7 +372,7 @@ namespace ZippingWorker_Service
                     await Task.Delay(1000, stoppingToken);
                 }
             }
-            logger.LogError("File {FilePath} was not ready after {MaxRetries} attempts.", filePath, maxRetries);
+            logger.LogInformation("File {FilePath} was not ready after {MaxRetries} attempts.", filePath, maxRetries);
 
             return fileReady;
         }
@@ -393,13 +412,16 @@ namespace ZippingWorker_Service
         {
             List<ZipFileEntry> files = request.Files;
 
-            _logger.LogInformation("Starting deletion of {Count} input files...", files.Count);
-
             int deletedCount = 0;
             int failedCount = 0;
+            int totalCount = 0;
             var deletedFiles = new List<string>();
             var failedFiles = new List<(string Path, string Error)>();
-            HashSet<DirectoryInfo> directoriesToDelete = new HashSet<DirectoryInfo>();
+
+            totalCount = files.Count;
+            _logger.LogInformation("Starting deletion of {Count} input files...", totalCount);
+
+            HashSet<string> directoriesToDelete = new HashSet<string>();
 
             foreach (var file in files)
             {
@@ -413,7 +435,9 @@ namespace ZippingWorker_Service
                 {
                     if (File.Exists(file.SourcePath))
                     {
-                        directoriesToDelete.Add(new DirectoryInfo(Path.GetDirectoryName(file.SourcePath)!));
+                        string dirpath = Path.GetDirectoryName(file.SourcePath);
+                        if (!string.IsNullOrEmpty(dirpath)) 
+                            directoriesToDelete.Add(dirpath);
                         if (request.DeleteInputFiles == DeleteEnumType.recyclebin)
                         {
                             FileSystem.DeleteFile(file.SourcePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
@@ -448,42 +472,91 @@ namespace ZippingWorker_Service
                 }
             }
 
-            _logger.LogInformation("Input file deletion completed: {DeletedCount} deleted, {FailedCount} failed", 
-                deletedCount, failedCount);
+            _logger.LogInformation("Input file deletion completed: {TotalCount} processed, {DeletedCount} deleted, {FailedCount} failed", 
+                totalCount, deletedCount, failedCount);
 
             int dirDeletedCount = 0;
             int dirFailedCount = 0;
-            _logger.LogInformation("Starting cleanup of {Count} directories...", directoriesToDelete.Count);
-            foreach (var dir in directoriesToDelete)
+            int dirtotalCount = directoriesToDelete.Count;
+            _logger.LogInformation("Starting cleanup of {Count} directories...", dirtotalCount);
+            var emptydirs = directoriesToDelete.Select(o => new DirectoryInfo(o)).ToList();
+            var emptydirscopy = directoriesToDelete.Select(o => new DirectoryInfo(o)).ToList();
+            foreach (var dirinfo in emptydirs)
             {
+                // Short-circuit: if all directories have been removed from the copy list, we're done
+                if (emptydirscopy.Count == 0)
+                {
+                    _logger.LogDebug("All directories have been processed, short-circuiting cleanup loop");
+                    break;
+                }
+
+                // Skip if this directory was already deleted as part of a parent deletion
+                if (!emptydirscopy.Any(d => d.FullName.Equals(dirinfo.FullName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
                 try
                 {
-                    if (dir.Exists && !dir.EnumerateFileSystemInfos().Any())
+                    var containingFiles = dirinfo.GetFiles("*", System.IO.SearchOption.AllDirectories);
+
+                    if (dirinfo.Exists && !containingFiles.Any())
                     {
+                        // Get all subdirectories that will be deleted along with the parent
+                        var containingDirs = dirinfo.GetDirectories("*", System.IO.SearchOption.AllDirectories);
+
                         if (request.DeleteInputFiles == DeleteEnumType.recyclebin)
                         {
-                            FileSystem.DeleteDirectory(dir.FullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-                            dirDeletedCount++;
-                            _logger.LogDebug("Sent empty directory to recycle bin: {DirectoryPath}", dir.FullName);
+                            FileSystem.DeleteDirectory(dirinfo.FullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                            dirDeletedCount++; // Count the parent directory
+                            _logger.LogDebug("Sent empty directory to recycle bin: {DirectoryPath}", dirinfo.FullName);
+
+                            // Remove the parent from the copy list
+                            emptydirscopy.RemoveAll(d => d.FullName.Equals(dirinfo.FullName, StringComparison.OrdinalIgnoreCase));
+
+                            // Log and count all subdirectories that were also deleted
+                            foreach (var subDir in containingDirs)
+                            {
+                                dirDeletedCount++;
+                                _logger.LogDebug("Sent subdirectory to recycle bin: {DirectoryPath}", subDir.FullName);
+
+                                // Remove each subdirectory from the copy list so we don't process it again
+                                emptydirscopy.RemoveAll(d => d.FullName.Equals(subDir.FullName, StringComparison.OrdinalIgnoreCase));
+                            }
                         }
                         else if (request.DeleteInputFiles == DeleteEnumType.delete)
                         {
-                            dir.Delete();
-                            dirDeletedCount++;
-                            _logger.LogDebug("Deleted empty directory: {DirectoryPath}", dir.FullName);
+                            Directory.Delete(dirinfo.FullName, true); // true = recursive delete
+                            dirDeletedCount++; // Count the parent directory
+                            _logger.LogDebug("Deleted empty directory: {DirectoryPath}", dirinfo.FullName);
+
+                            // Remove the parent from the copy list
+                            emptydirscopy.RemoveAll(d => d.FullName.Equals(dirinfo.FullName, StringComparison.OrdinalIgnoreCase));
+
+                            // Log and count all subdirectories that were also deleted
+                            foreach (var subDir in containingDirs)
+                            {
+                                dirDeletedCount++;
+                                _logger.LogDebug("Deleted subdirectory: {DirectoryPath}", subDir.FullName);
+
+                                // Remove each subdirectory from the copy list so we don't process it again
+                                emptydirscopy.RemoveAll(d => d.FullName.Equals(subDir.FullName, StringComparison.OrdinalIgnoreCase));
+                            }
                         }
-                        
                     }
                 }
                 catch (Exception ex)
                 {
                     dirFailedCount++;
-                    _logger.LogError(ex, "Failed to delete directory: {DirectoryPath}", dir.FullName);
+                    _logger.LogError(ex, "Failed to delete directory: {DirectoryPath}", dirinfo.FullName);
+                    // Remove from copy list even on failure to avoid retrying
+                    emptydirscopy.RemoveAll(d => d.FullName.Equals(dirinfo.FullName, StringComparison.OrdinalIgnoreCase));
                 }
             }
-            _logger.LogInformation("Directory cleanup completed: {DeletedCount} deleted, {FailedCount} failed", dirDeletedCount, dirFailedCount);
+            _logger.LogInformation("Directory cleanup completed: {TotalDirCount} processed, {DeletedCount} deleted, {FailedCount} failed", dirtotalCount, dirDeletedCount, dirFailedCount);
 
             _metrics.RecordFileDeletion(deletedCount, failedCount);
+            _metrics.RecordDirectoryDeletion(dirDeletedCount, dirFailedCount);
 
             if (failedCount > 0)
             {

@@ -29,6 +29,9 @@ GET http://localhost:{configured_port}/metrics
 - **`zipping_files_deleted_total{status="success|failed"}`**  
   Total number of input files deleted after successful archiving
 
+- **`zipping_directories_deleted_total{status="success|failed"}`**  
+  Total number of directories deleted after successful archiving
+
 - **`zipping_copy_verifications_total{result="success|failed"}`**  
   Total number of staging-to-final copy verifications
 
@@ -100,6 +103,11 @@ rate(zipping_validation_results_total[5m]) * 100
 ### Files Deleted per Second
 ```promql
 rate(zipping_files_deleted_total{status="success"}[5m])
+```
+
+### Directories Deleted per Second
+```promql
+rate(zipping_directories_deleted_total{status="success"}[5m])
 ```
 
 ## Grafana Dashboard
