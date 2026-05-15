@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.Diagnostics.Eventing.Reader;
 
 namespace ZippingWorker_Service.Zipping
 {
@@ -26,6 +27,7 @@ namespace ZippingWorker_Service.Zipping
             StreamReader outputStream,
             int totalFiles,
             int symlinkCount,
+            string logType,
             ProgressCallback? onProgress,
             Action<string>? onLog)
         {
@@ -47,10 +49,11 @@ namespace ZippingWorker_Service.Zipping
 
                     // Calculate overall progress: 15% for symlinks, 85% for compression
                     // Total progress = (symlinkCount * 15% / totalFiles) + (compressedFileCount * 85% / totalFiles)
-                    int overallCurrent = (int)((symlinkCount * 0.15) + (compressedFileCount * 0.85));
+
+
 
                     // Report progress with ZipAdd type
-                    onProgress?.Invoke(overallCurrent, totalFiles*2, line.Length > 2 ? line.Substring(2).Trim() : "", "ZipAdd");
+                    onProgress?.Invoke(compressedFileCount, totalFiles, line.Length > 2 ? line.Substring(2).Trim() : "", logType);
                 }
             }
         }
@@ -58,8 +61,9 @@ namespace ZippingWorker_Service.Zipping
                                                     string stagingDirectory,
                                                     string zipOutputPath,
                                                     string? sevenZipExePath = _sevenZipExePath,
-                                                    ProgressCallback? onProgress = null,
+                                                    bool zipperIntegrityCheck = false,
                                                     string? compressionArgs = _compressionArgs,
+                                                    ProgressCallback? onProgress = null,
                                                     Action<string>? onLog = null,
                                                     Action<Exception>? onError = null,
                                                     string? symlinkTempDir = null)
@@ -111,11 +115,11 @@ namespace ZippingWorker_Service.Zipping
                                     continue;
                                 }
                                 // Report detailed info about the link created (full paths)
-                                onProgress?.Invoke(index, files.Count*2, $"{linkPath} -> {source}", "LinkInfo");
+                                onProgress?.Invoke(index, files.Count, $"{linkPath} -> {source}", "LinkInfo");
                             }
                             index++;
                             // Report progress for this symlink
-                            onProgress?.Invoke(index, files.Count*2, archivePath, "LinkAdd");
+                            onProgress?.Invoke(index, files.Count, archivePath, "LinkAdd");
                             onLog?.Invoke($" Linked: {archivePath}");
                         }
                         catch (Exception ex)
@@ -131,8 +135,9 @@ namespace ZippingWorker_Service.Zipping
                 }
 
                 onLog?.Invoke("[7z] Starting compression...");
-
+                
                 string arguments = $"a -ssp -bb {compressionArgs} \"{zipOutputPath}\" \"{tempRoot}\"";
+
                 var psi = new ProcessStartInfo
                 {
                     FileName = sevenZipExePath,
@@ -156,6 +161,7 @@ namespace ZippingWorker_Service.Zipping
                         process.StandardOutput,
                         files.Count,
                         symlinkCount, // Number of symlinks created (15% of work)
+                        "ZipAdd", // Use ZipAdd type for compression progress
                         onProgress,
                         onLog);
 
@@ -176,6 +182,58 @@ namespace ZippingWorker_Service.Zipping
                         onLog?.Invoke("[7z] Archive created successfully.");
                     }
                 }
+
+                if (zipperIntegrityCheck)
+                {
+                    onLog?.Invoke("[7z] Integrity check...");
+
+                    string arguments2 = $"t -bb \"{zipOutputPath}\"";
+
+                    var psi2 = new ProcessStartInfo
+                    {
+                        FileName = sevenZipExePath,
+                        Arguments = arguments2,
+                        WorkingDirectory = tempRoot,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+
+                    using (var process = Process.Start(psi))
+                    {
+                        if (process == null)
+                        {
+                            throw new Exception("Failed to start 7z process");
+                        }
+
+                        // Start monitoring 7z output asynchronously for progress updates
+                        var monitorTask = MonitorSevenZipProgressAsync(
+                            process.StandardOutput,
+                            files.Count,
+                            symlinkCount, // Number of symlinks created (15% of work)
+                            "ZipTest", // Use ZipTest type for integrity check progress as well
+                            onProgress,
+                            onLog);
+
+                        // Read stderr separately
+                        string stderr = await process.StandardError.ReadToEndAsync();
+
+                        // Wait for both monitoring and process completion
+                        await monitorTask;
+                        await Task.Run(() => process.WaitForExit());
+
+                        if (process.ExitCode != 0)
+                        {
+                            var ex = new Exception($"7z exited with code {process.ExitCode}:\n{stderr}");
+                            onError?.Invoke(ex);
+                        }
+                        else
+                        {
+                            onLog?.Invoke("[7z] Archive integrity check completed successfully.");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -193,6 +251,36 @@ namespace ZippingWorker_Service.Zipping
                     onError?.Invoke(new Exception("Failed to delete temp folder: " + tempRoot, cleanupEx));
                 }
             }
+        }
+        private static async Task<int> Run7Zip(string exe, string arguments, string workingDir)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = exe,
+                Arguments = arguments,
+                WorkingDirectory = workingDir,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process();
+            process.StartInfo = psi;
+
+            process.Start();
+
+            string stdout = await process.StandardOutput.ReadToEndAsync();
+            string stderr = await process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync();
+
+            Console.WriteLine(stdout);
+
+            if (!string.IsNullOrWhiteSpace(stderr))
+                Console.WriteLine(stderr);
+
+            return process.ExitCode;
         }
     }
 }

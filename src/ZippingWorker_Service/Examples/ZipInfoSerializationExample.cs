@@ -18,7 +18,7 @@ namespace ZippingWorker_Service.Examples
                 zipfilename = "example-archive.zip",
                 zipfiledirectory = @"C:\temp\output",
                 zipcompressionlevel = CompressionLevelEnumType.ultra,
-                validatezipping = true,
+                validatezipping = ValidateEnumType.extract,
                 driveletters = new[]
                 {
                     new DriveLetterType

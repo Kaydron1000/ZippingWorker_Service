@@ -10,6 +10,7 @@ namespace ZippingWorker_Service.Zipping
         public async Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
                                             string stagingDirectory,
                                             string archiveOutputPath,
+                                            bool zipperIntegrityCheck = false,
                                             ArchiveCompressionLevel compressionLevel = ArchiveCompressionLevel.ultra,
                                             ProgressCallback? onProgress = null,
                                             Action<string>? onLog = null,

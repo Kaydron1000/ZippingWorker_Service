@@ -124,7 +124,7 @@ namespace ZippingWorker_Service.Examples
                     Hash = null
                 }).ToList(),
                 OutputArchivePath = @"C:\output\multi-drive-archive.zip",
-                ValidateZipping = true
+                ValidateZipping = Model.ValidateEnumType.extract
             };
 
             await queue.EnqueueAsync(request);

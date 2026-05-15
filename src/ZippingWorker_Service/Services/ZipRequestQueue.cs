@@ -1,16 +1,17 @@
 using System.Threading.Channels;
 using ZippingWorker_Service.Configuration;
+using ZippingWorker_Service.Model;
 using ZippingWorker_Service.Zipping;
 
 namespace ZippingWorker_Service.Services
 {
     public class ZipRequest
     {
-        public List<ZipFileEntry> Files { get; set; } = [];
+        public List<ZipFileEntry> Files { get; set; } = new();
         public string OutputArchivePath { get; set; } = string.Empty;
         public ArchiveCompressionLevel CompressionLevel { get; set; } = ArchiveCompressionLevel.ultra;
-        public bool ValidateZipping { get; set; } = true;
-        public bool DeleteInputFiles { get; set; } = false;
+        public ValidateEnumType ValidateZipping { get; set; } = ValidateEnumType.extract;
+        public DeleteEnumType DeleteInputFiles { get; set; } = DeleteEnumType.none;
 
         /// <summary>
         /// Snapshot of the configuration at the time this request was created.

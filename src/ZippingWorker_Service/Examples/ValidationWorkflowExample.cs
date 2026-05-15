@@ -38,7 +38,7 @@ namespace ZippingWorker_Service.Examples
                     Hash = null // Service will calculate automatically
                 }).ToList(),
                 OutputArchivePath = outputZip,
-                ValidateZipping = true // Enable validation
+                ValidateZipping = Model.ValidateEnumType.extract // Enable validation
             };
 
             await _zipQueue.EnqueueAsync(request);
@@ -80,7 +80,7 @@ namespace ZippingWorker_Service.Examples
             {
                 Files = filesWithHashes,
                 OutputArchivePath = outputZip,
-                ValidateZipping = true
+                ValidateZipping = Model.ValidateEnumType.extract
             };
 
             await _zipQueue.EnqueueAsync(request);
@@ -103,7 +103,7 @@ namespace ZippingWorker_Service.Examples
                     Hash = null
                 }).ToList(),
                 OutputArchivePath = outputZip,
-                ValidateZipping = false // Disable validation for speed
+                ValidateZipping = Model.ValidateEnumType.none // Disable validation for speed
             };
 
             await _zipQueue.EnqueueAsync(request);
@@ -140,7 +140,7 @@ namespace ZippingWorker_Service.Examples
                 Files = zipEntries,
                 OutputArchivePath = outputZip,
                 CompressionLevel = Zipping.ArchiveCompressionLevel.ultra,
-                ValidateZipping = true
+                ValidateZipping = Model.ValidateEnumType.extract
             };
 
             await _zipQueue.EnqueueAsync(request);

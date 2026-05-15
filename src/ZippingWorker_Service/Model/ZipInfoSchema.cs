@@ -30,9 +30,9 @@ namespace ZippingWorker_Service.Model {
         
         private CompressionLevelEnumType zipcompressionlevelField;
         
-        private bool validatezippingField;
+        private ValidateEnumType validatezippingField;
         
-        private bool deleteinputfilesField;
+        private DeleteEnumType deleteinputfilesField;
         
         private DriveLetterType[] drivelettersField;
         
@@ -43,8 +43,8 @@ namespace ZippingWorker_Service.Model {
         public ZipInfoType() {
             this.zipfiledirectoryField = "";
             this.zipcompressionlevelField = CompressionLevelEnumType.ultra;
-            this.validatezippingField = true;
-            this.deleteinputfilesField = false;
+            this.validatezippingField = ValidateEnumType.extract;
+            this.deleteinputfilesField = DeleteEnumType.recyclebin;
         }
         
         /// <remarks/>
@@ -87,8 +87,8 @@ namespace ZippingWorker_Service.Model {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
-        [System.ComponentModel.DefaultValueAttribute(true)]
-        public bool validatezipping {
+        [System.ComponentModel.DefaultValueAttribute(ValidateEnumType.extract)]
+        public ValidateEnumType validatezipping {
             get {
                 return this.validatezippingField;
             }
@@ -100,8 +100,8 @@ namespace ZippingWorker_Service.Model {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Form=System.Xml.Schema.XmlSchemaForm.Unqualified)]
-        [System.ComponentModel.DefaultValueAttribute(false)]
-        public bool deleteinputfiles {
+        [System.ComponentModel.DefaultValueAttribute(DeleteEnumType.recyclebin)]
+        public DeleteEnumType deleteinputfiles {
             get {
                 return this.deleteinputfilesField;
             }
@@ -183,6 +183,39 @@ namespace ZippingWorker_Service.Model {
         
         /// <remarks/>
         ultra,
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.8.9037.0")]
+    [System.SerializableAttribute()]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
+    public enum ValidateEnumType {
+        
+        /// <remarks/>
+        extract,
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlEnumAttribute("7zip")]
+        Item7zip,
+        
+        /// <remarks/>
+        none,
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.8.9037.0")]
+    [System.SerializableAttribute()]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://tempuri.org/ZipInfoSchema.xsd")]
+    public enum DeleteEnumType {
+        
+        /// <remarks/>
+        delete,
+        
+        /// <remarks/>
+        recyclebin,
+        
+        /// <remarks/>
+        none,
     }
     
     /// <remarks/>

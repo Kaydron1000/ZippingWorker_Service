@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using ZippingWorker_Service.Model;
 
 namespace ZippingWorker_Service.Zipping
 {
@@ -19,6 +20,7 @@ namespace ZippingWorker_Service.Zipping
                     List<(string SourcePath, string ArchivePath)> files,
                     string stagingDirectory,
                     string zipOutputPath,
+                    bool zipperIntegrityCheck = false,
                     ArchiveCompressionLevel compressionLevel = ArchiveCompressionLevel.ultra,
                     ProgressCallback onProgress = null,
                     Action<string> onLog = null,

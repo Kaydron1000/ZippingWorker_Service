@@ -39,16 +39,16 @@ namespace ZippingWorker_Service.Zipping
                     break;
             }
 
-            return SevenZipSymlinkArchiver.CreateArchiveAsync(
-                        zipinfo.zipfiles.Select(o => (o.ResolvedFileLocation, o.internalziplocation)).ToList(),
-                        zipinfo.ResolvedZipFileDirectory,
-                        System.IO.Path.Combine(zipinfo.ResolvedZipFileDirectory, zipinfo.zipfilename),
-                        "7z.exe",
-                        onProgress,
-                        levelArg,
-                        onLog,
-                        onError
-                        );
+            return null;// SevenZipSymlinkArchiver.CreateArchiveAsync(
+                        //zipinfo.zipfiles.Select(o => (o.ResolvedFileLocation, o.internalziplocation)).ToList(),
+                        //zipinfo.ResolvedZipFileDirectory,
+                        //System.IO.Path.Combine(zipinfo.ResolvedZipFileDirectory, zipinfo.zipfilename),
+                        //"7z.exe",
+                        //onProgress,
+                        //levelArg,
+                        //onLog,
+                        //onError
+                        //);
         }
         public Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
                                        string archiveOutputPath,
@@ -81,16 +81,16 @@ namespace ZippingWorker_Service.Zipping
                 default:
                     break;
             }
-            return SevenZipSymlinkArchiver.CreateArchiveAsync(
-                        files,
-                        archiveOutputPath,
-                        archiveOutputPath.Substring(0, archiveOutputPath.LastIndexOf(System.IO.Path.DirectorySeparatorChar)),
-                        "7z.exe",
-                        onProgress,
-                        levelArg,
-                        onLog,
-                        onError
-                        );
+            return null; // SevenZipSymlinkArchiver.CreateArchiveAsync(
+                         //files,
+                         //archiveOutputPath,
+                         //archiveOutputPath.Substring(0, archiveOutputPath.LastIndexOf(System.IO.Path.DirectorySeparatorChar)),
+                         //"7z.exe",
+                         //onProgress,
+                         //levelArg,
+                         //onLog,
+                         //onError
+                         //);
         }
 
     }

@@ -1,4 +1,5 @@
 using ZippingWorker_Service.Configuration;
+using ZippingWorker_Service.Model;
 using ZippingWorker_Service.Zipping;
 
 namespace ZippingWorker_Service.Services
@@ -46,6 +47,7 @@ namespace ZippingWorker_Service.Services
         public Task CreateArchiveAsync(List<(string SourcePath, string ArchivePath)> files,
                                       string  stagingDirectory,
                                       string zipOutputPath,
+                                      bool zipperIntegrityCheck = false,
                                       ArchiveCompressionLevel compressionLevel = ArchiveCompressionLevel.ultra,
                                       ProgressCallback? onProgress = null,
                                       Action<string>? onLog = null,
@@ -67,8 +69,9 @@ namespace ZippingWorker_Service.Services
                 stagingDirectory,
                 zipOutputPath,
                 _sevenZipExePath,
-                onProgress,
+                zipperIntegrityCheck,
                 compressionArgs,
+                onProgress,
                 onLog,
                 onError,
                 _symlinkTempDir

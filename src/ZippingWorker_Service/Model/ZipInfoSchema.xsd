@@ -18,6 +18,22 @@
 		</xs:restriction>
 	</xs:simpleType>
 
+	<xs:simpleType name="DeleteEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="delete" />
+			<xs:enumeration value="recyclebin" />
+			<xs:enumeration value="none" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="ValidateEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="extract" />
+			<xs:enumeration value="7zip" />
+			<xs:enumeration value="none" />
+		</xs:restriction>
+	</xs:simpleType>
+	
 	<xs:complexType name="DriveLetterType">
 		<xs:all>
 			<xs:element name="metadata"				type="MetaDataDictType"									minOccurs="0"/>
@@ -60,14 +76,14 @@
 	
 	<xs:complexType name="ZipInfoType">
 		<xs:all>
-			<xs:element name="zipfilename"			type="xs:string"										minOccurs="1"/>
-			<xs:element name="zipfiledirectory"		type="xs:string"					default=""			minOccurs="0"/>
-			<xs:element name="zipcompressionlevel"	type="CompressionLevelEnumType"		default="ultra"		minOccurs="0"/>
-			<xs:element name="validatezipping"		type="xs:boolean"					default="true"		minOccurs="0"/>
-			<xs:element name="deleteinputfiles"		type="xs:boolean"					default="false"		minOccurs="0"/>
-			<xs:element name="driveletters"			type="DriveLettersType"									minOccurs="0"/>
-			<xs:element name="zipfiles"				type="FileInfosType"									minOccurs="1"/>
-			<xs:element name="metadata"				type="MetaDataDictType"									minOccurs="0"/>
+			<xs:element name="zipfilename"			type="xs:string"											minOccurs="1"/>
+			<xs:element name="zipfiledirectory"		type="xs:string"					default=""				minOccurs="0"/>
+			<xs:element name="zipcompressionlevel"	type="CompressionLevelEnumType"		default="ultra"			minOccurs="0"/>
+			<xs:element name="validatezipping"		type="ValidateEnumType"				default="extract"		minOccurs="0"/>
+			<xs:element name="deleteinputfiles"		type="DeleteEnumType"				default="recyclebin"	minOccurs="0"/>
+			<xs:element name="driveletters"			type="DriveLettersType"										minOccurs="0"/>
+			<xs:element name="zipfiles"				type="FileInfosType"										minOccurs="1"/>
+			<xs:element name="metadata"				type="MetaDataDictType"										minOccurs="0"/>
 		</xs:all>
 	</xs:complexType>
 

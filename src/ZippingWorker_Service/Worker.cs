@@ -2,7 +2,9 @@ using System.Diagnostics;
 using ZippingWorker_Service.Configuration;
 using ZippingWorker_Service.Services;
 using ZippingWorker_Service.Zipping;
+using Microsoft.VisualBasic.FileIO;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using ZippingWorker_Service.Model;
 
 namespace ZippingWorker_Service
 {
@@ -67,228 +69,239 @@ namespace ZippingWorker_Service
 
                 _logger.LogInformation("Processing zip request for output: {OutputPath}", request.OutputArchivePath);
 
-            // Calculate hashes for files that don't have them (if validation is enabled)
-            if (request.ValidateZipping)
-            {
-                _logger.LogInformation("Pre-calculating hashes for validation...");
-                var files = request.Files.Where(f => string.IsNullOrWhiteSpace(f.Hash)).ToList();
-
-                await Task.WhenAll(files.Select(async file =>
+                // Calculate hashes for files that don't have them (if validation is enabled)
+                if (request.ValidateZipping == ValidateEnumType.extract)
                 {
-                    if (Directory.Exists(file.SourcePath))
-                        _logger.LogWarning("Source path is not a file but a directory. List all full file paths");
-                    else if (File.Exists(file.SourcePath))
+                    _logger.LogInformation("Pre-calculating hashes for validation...");
+                    var files = request.Files.Where(f => string.IsNullOrWhiteSpace(f.Hash)).ToList();
+
+                    await Task.WhenAll(files.Select(async file =>
                     {
-                        file.Hash = await _validationService.ComputeFileHashAsync(file.SourcePath, stoppingToken);
-                        _logger.LogDebug("Calculated hash for {SourcePath}: {Hash}", file.SourcePath, file.Hash);
-                    }
-                    else
+                        if (Directory.Exists(file.SourcePath))
+                            _logger.LogWarning("Source path is not a file but a directory. List all full file paths");
+                        else if (File.Exists(file.SourcePath))
+                        {
+                            file.Hash = await _validationService.ComputeFileHashAsync(file.SourcePath, stoppingToken);
+                            _logger.LogDebug("Calculated hash for {SourcePath}: {Hash}", file.SourcePath, file.Hash);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Cannot calculate hash: Source file not found: {SourcePath}", file.SourcePath);
+                        }
+                    }));
+                }
+
+                // Getting final zip path and ensure it has the correct extension based on the archiver type
+                FilePathManger filePathManger = new FilePathManger(config, _logger, request.OutputArchivePath);
+
+                _logger.LogInformation("Using file staging location for zipping: {StageDirectory}", filePathManger.StageFilesDirectory);
+
+                //_logger.LogInformation("Zipping to location: {ZipPath}", zipPath);
+                // stage yes no
+                // validate yes no
+                // validate move yes no
+                string zipPath = filePathManger.ArchiveFilePath;
+                if (config.usestaging)
+                    zipPath = filePathManger.StageZipPath;
+
+                var archiver = _archiverFactory.CreateArchiver();
+
+                // Convert to the format expected by IArchiver
+                var fileList = request.Files.Select(f => (f.SourcePath, f.ArchivePath)).ToList();
+
+                // Track archiver errors
+                Exception? archiverException = null;
+                bool integrityCheck = false;
+                if (request.ValidateZipping == ValidateEnumType.Item7zip)
+                {
+                    integrityCheck = true;
+                    _logger.LogInformation("7z integrity check will be performed after archive creation.");
+                }
+
+                await archiver.CreateArchiveAsync(
+                    fileList,
+                    filePathManger.StageFilesDirectory,
+                    zipPath,
+                    integrityCheck,
+                    request.CompressionLevel,
+                    onProgress: (current, total, path, logType) =>
                     {
-                        _logger.LogWarning("Cannot calculate hash: Source file not found: {SourcePath}", file.SourcePath);
-                    }
-                }));
-            }
+                        _metrics.UpdateZipProgress(current, total);
 
-            // Getting final zip path and ensure it has the correct extension based on the archiver type
-            FilePathManger filePathManger = new FilePathManger(config, _logger, request.OutputArchivePath);
-
-            _logger.LogInformation("Using file staging location for zipping: {StageDirectory}", filePathManger.StageFilesDirectory);
-
-            //_logger.LogInformation("Zipping to location: {ZipPath}", zipPath);
-            // stage yes no
-            // validate yes no
-            // validate move yes no
-            string zipPath = filePathManger.ArchiveFilePath;
-            if (config.usestaging)
-                zipPath = filePathManger.StageZipPath;
-
-            var archiver = _archiverFactory.CreateArchiver();
-
-            // Convert to the format expected by IArchiver
-            var fileList = request.Files.Select(f => (f.SourcePath, f.ArchivePath)).ToList();
-
-            // Track archiver errors
-            Exception? archiverException = null;
-
-            await archiver.CreateArchiveAsync(
-                fileList,
-                filePathManger.StageFilesDirectory,
-                zipPath,
-                request.CompressionLevel,
-                onProgress: (current, total, path, logType) =>
-                {
-                    _metrics.UpdateZipProgress(current, total);
-
-                    // Log differently based on operation type
-                    switch (logType)
+                        // Log differently based on operation type
+                        switch (logType)
+                        {
+                            case "LinkAdd":
+                                _logger.LogInformation("Symlink Created: {Current}/{Total} ({Percent:F1}%) - {Path}", 
+                                    current, total, (double)current / total * 100.0, path);
+                                break;
+                            case "LinkInfo":
+                                _logger.LogDebug("Symlink Info: {Path}", path);
+                                break;
+                            case "ZipAdd":
+                                _logger.LogInformation("Compressing: {Current}/{Total} ({Percent:F1}%) - {Path}", 
+                                    current, total, (double)current / total * 100.0, path);
+                                break;
+                            case "ZipInfo":
+                                _logger.LogDebug("7z Info: {Path}", path);
+                                break;
+                            case "ZipTest":
+                                _logger.LogInformation("Testing archive: {Current}/{Total} ({Percent:F1}%) - {Path}",
+                                    current, total, (double)current / total * 100.0, path);
+                                break;
+                            default:
+                                _logger.LogInformation("Progress: {Current}/{Total} ({Percent:F1}%) - {Path} [{Type}]", 
+                                    current, total, (double)current / total * 100.0, path, logType);
+                                break;
+                        }
+                    },
+                    onLog: (message) =>
                     {
-                        case "LinkAdd":
-                            _logger.LogInformation("Symlink Created: {Current}/{Total} ({Percent:F1}%) - {Path}", 
-                                current, total, (double)current / total * 100.0, path);
-                            break;
-                        case "LinkInfo":
-                            _logger.LogDebug("Symlink Info: {Path}", path);
-                            break;
-                        case "ZipAdd":
-                            _logger.LogInformation("Compressing: {Current}/{Total} ({Percent:F1}%) - {Path}", 
-                                current, total, (double)current / total * 100.0, path);
-                            break;
-                        case "ZipInfo":
-                            _logger.LogDebug("7z Info: {Path}", path);
-                            break;
-                        default:
-                            _logger.LogInformation("Progress: {Current}/{Total} ({Percent:F1}%) - {Path} [{Type}]", 
-                                current, total, (double)current / total * 100.0, path, logType);
-                            break;
-                    }
-                },
-                onLog: (message) =>
+                        _logger.LogInformation("Archiver: {Message}", message);
+                    },
+                    onError: (exception) =>
+                    {
+                        archiverException = exception;
+                        _logger.LogError(exception, "Archiver error occurred during archive creation");
+                    });
+
+                // Check if archiver failed
+                if (archiverException != null)
                 {
-                    _logger.LogInformation("Archiver: {Message}", message);
-                },
-                onError: (exception) =>
-                {
-                    archiverException = exception;
-                    _logger.LogError(exception, "Archiver error occurred during archive creation");
-                });
+                    _logger.LogError("Archive creation failed due to archiver error");
+                    throw new Exception("Archive creation failed", archiverException);
+                }
 
-            // Check if archiver failed
-            if (archiverException != null)
-            {
-                _logger.LogError("Archive creation failed due to archiver error");
-                throw new Exception("Archive creation failed", archiverException);
-            }
+                _logger.LogInformation("Completed zip creation at: {Path}", zipPath);
 
-            _logger.LogInformation("Completed zip creation at: {Path}", zipPath);
-
-            if (File.Exists(zipPath))
-            {
-                // Ensure file is not locked and is ready for reading
-                bool fileReady = await WaitForFileReady(zipPath, _logger, stoppingToken);
-                if (!fileReady)
-                    throw new Exception("Zip file is not ready or invalid");
-
-                // Validate if requested
-                if (request.ValidateZipping)
+                if (File.Exists(zipPath))
                 {
                     // Ensure file is not locked and is ready for reading
-                    fileReady = await WaitForFileReady(zipPath, _logger, stoppingToken);
+                    bool fileReady = await WaitForFileReady(zipPath, _logger, stoppingToken);
                     if (!fileReady)
                         throw new Exception("Zip file is not ready or invalid");
 
-                    var validationStartTime = DateTime.UtcNow;
-                    _logger.LogInformation("Starting zip validation...");
-                    var validationResult = await _validationService.ValidateZipAsync(
-                        zipPath,
-                        request.Files,
-                        stoppingToken);
-
-                    var validationDuration = (DateTime.UtcNow - validationStartTime).TotalSeconds;
-                    _metrics.RecordZipValidation(validationResult.IsValid, validationDuration);
-
-                    if (validationResult.IsValid)
+                    // Validate if requested
+                    if (request.ValidateZipping == ValidateEnumType.extract)
                     {
-                        _logger.LogInformation("Zip validation PASSED. {Count} files validated successfully.", 
-                            validationResult.ValidatedFiles.Count);
-                    }
-                    else
-                    {
-                        _logger.LogError("Zip validation FAILED with {ErrorCount} errors:", validationResult.Errors.Count);
-                        foreach (var error in validationResult.Errors)
+                        // Ensure file is not locked and is ready for reading
+                        fileReady = await WaitForFileReady(zipPath, _logger, stoppingToken);
+                        if (!fileReady)
+                            throw new Exception("Zip file is not ready or invalid");
+
+                        var validationStartTime = DateTime.UtcNow;
+                        _logger.LogInformation("Starting zip validation...");
+                        var validationResult = await _validationService.ValidateZipAsync(
+                            zipPath,
+                            request.Files,
+                            stoppingToken);
+
+                        var validationDuration = (DateTime.UtcNow - validationStartTime).TotalSeconds;
+                        _metrics.RecordZipValidation(validationResult.IsValid, validationDuration);
+
+                        if (validationResult.IsValid)
                         {
-                            _logger.LogError("  - {Error}", error);
+                            _logger.LogInformation("Zip validation PASSED. {Count} files validated successfully.", 
+                                validationResult.ValidatedFiles.Count);
+                        }
+                        else
+                        {
+                            _logger.LogError("Zip validation FAILED with {ErrorCount} errors:", validationResult.Errors.Count);
+                            foreach (var error in validationResult.Errors)
+                            {
+                                _logger.LogError("  - {Error}", error);
+                            }
+
+                            // Record failed completion
+                            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+                            _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
                         }
 
-                        // Record failed completion
-                        var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                        _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
+                        if (validationResult.Warnings.Count > 0)
+                        {
+                            _logger.LogWarning("Validation warnings:");
+                            foreach (var warning in validationResult.Warnings)
+                            {
+                                _logger.LogWarning("  - {Warning}", warning);
+                            }
+                        }
                     }
 
-                    if (validationResult.Warnings.Count > 0)
+                    await RenameZippedItem(sevenZipExePath: config.sevenzipexepath, zipFilePath: zipPath,
+                                           origfldFileName: filePathManger.StageFilesFolder, newfldFileName: filePathManger.RenameTopInternalZipFolderName,
+                                           onLog: (message) =>
+                                           {
+                                               _logger.LogInformation("Archiver Name Change: {Message}", message);
+                                           },
+                                           onError: (exception) =>
+                                           {
+                                               archiverException = exception;
+                                               _logger.LogError(exception, "Archiver error occurred during archive name change");
+                                           });
+
+                    // copy staged zip to final location if staging is enabled and validate copy, otherwise it's already at final location
+                    // If staging is not used, the zip is already at the final location and can skip the copy and verification steps
+                    if (config.usestaging)
                     {
-                        _logger.LogWarning("Validation warnings:");
-                        foreach (var warning in validationResult.Warnings)
+                        // Copy from staging to final location with hash verification
+                        _logger.LogInformation("Computing hash of zip package...");
+                        string stagingHash = await _validationService.ComputeFileHashAsync(zipPath, stoppingToken);
+                        _logger.LogInformation("Staging zip hash: {Hash}", stagingHash);
+
+                        _logger.LogInformation("Copying zip from staging to final location: {OutputPath}", filePathManger.ArchiveFilePath);
+                        Directory.CreateDirectory(filePathManger.ArchiveDirectory);
+
+                        // Copy the file
+                        File.Copy(zipPath, filePathManger.ArchiveFilePath, overwrite: false);
+                        _logger.LogInformation("Zip file copied to: {OutputPath}", filePathManger.ArchiveFilePath);
+
+                        // Verify the copy
+                        _logger.LogInformation("Verifying copied file integrity...");
+                        string copiedHash = await _validationService.ComputeFileHashAsync(filePathManger.ArchiveFilePath, stoppingToken);
+                        _logger.LogInformation("Copied zip hash: {Hash}", copiedHash);
+
+                        if (stagingHash.Equals(copiedHash, StringComparison.OrdinalIgnoreCase))
                         {
-                            _logger.LogWarning("  - {Warning}", warning);
+                            _metrics.RecordCopyVerification(true);
+                            _logger.LogInformation("Copy verification PASSED - hashes match. Deleting staging file.");
+                            File.Delete(zipPath);
+                            _logger.LogInformation("Staging file deleted: {StagingPath}", zipPath);
+
+                            // Delete input files if requested
+                            if (request.DeleteInputFiles == DeleteEnumType.delete || request.DeleteInputFiles == DeleteEnumType.recyclebin)
+                            {
+                                await DeleteInputFilesAsync(request, stoppingToken);
+                            }
+
+                            // Record successful completion
+                            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+                            var zipSize = new FileInfo(filePathManger.ArchiveFilePath).Length;
+                            _metrics.RecordZipRequestCompleted(true, duration, zipSize, request.Files.Count);
+                        }
+                        else
+                        {
+                            _metrics.RecordCopyVerification(false);
+                            _logger.LogError("Copy verification FAILED - hash mismatch! Staging: {StagingHash}, Copied: {CopiedHash}", stagingHash, copiedHash);
+                            _logger.LogWarning("Keeping staging file for investigation: {StagingPath}", zipPath);
+                            // Delete the bad copy
+                            if (File.Exists(filePathManger.ArchiveFilePath))
+                            {
+                                File.Delete(filePathManger.ArchiveFilePath);
+                                _logger.LogWarning("Deleted corrupted copy from destination.");
+                            }
+
+                            // Record failed completion
+                            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+                            _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
                         }
                     }
                 }
-
-                await RenameZippedItem(sevenZipExePath: config.sevenzipexepath, zipFilePath: zipPath,
-                                       origfldFileName: filePathManger.StageFilesFolder, newfldFileName: filePathManger.RenameTopInternalZipFolderName,
-                                       onLog: (message) =>
-                                       {
-                                           _logger.LogInformation("Archiver Name Change: {Message}", message);
-                                       },
-                                       onError: (exception) =>
-                                       {
-                                           archiverException = exception;
-                                           _logger.LogError(exception, "Archiver error occurred during archive name change");
-                                       });
-
-                // copy staged zip to final location if staging is enabled and validate copy, otherwise it's already at final location
-                // If staging is not used, the zip is already at the final location and can skip the copy and verification steps
-                if (config.usestaging)
+                else
                 {
-                    // Copy from staging to final location with hash verification
-                    _logger.LogInformation("Computing hash of zip package...");
-                    string stagingHash = await _validationService.ComputeFileHashAsync(zipPath, stoppingToken);
-                    _logger.LogInformation("Staging zip hash: {Hash}", stagingHash);
-
-                    _logger.LogInformation("Copying zip from staging to final location: {OutputPath}", filePathManger.ArchiveFilePath);
-                    Directory.CreateDirectory(filePathManger.ArchiveDirectory);
-
-                    // Copy the file
-                    File.Copy(zipPath, filePathManger.ArchiveFilePath, overwrite: false);
-                    _logger.LogInformation("Zip file copied to: {OutputPath}", filePathManger.ArchiveFilePath);
-
-                    // Verify the copy
-                    _logger.LogInformation("Verifying copied file integrity...");
-                    string copiedHash = await _validationService.ComputeFileHashAsync(filePathManger.ArchiveFilePath, stoppingToken);
-                    _logger.LogInformation("Copied zip hash: {Hash}", copiedHash);
-
-                    if (stagingHash.Equals(copiedHash, StringComparison.OrdinalIgnoreCase))
-                    {
-                        _metrics.RecordCopyVerification(true);
-                        _logger.LogInformation("Copy verification PASSED - hashes match. Deleting staging file.");
-                        File.Delete(zipPath);
-                        _logger.LogInformation("Staging file deleted: {StagingPath}", zipPath);
-
-                        // Delete input files if requested
-                        if (request.DeleteInputFiles)
-                        {
-                            await DeleteInputFilesAsync(request.Files, stoppingToken);
-                        }
-
-                        // Record successful completion
-                        var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                        var zipSize = new FileInfo(filePathManger.ArchiveFilePath).Length;
-                        _metrics.RecordZipRequestCompleted(true, duration, zipSize, request.Files.Count);
-                    }
-                    else
-                    {
-                        _metrics.RecordCopyVerification(false);
-                        _logger.LogError("Copy verification FAILED - hash mismatch! Staging: {StagingHash}, Copied: {CopiedHash}", stagingHash, copiedHash);
-                        _logger.LogWarning("Keeping staging file for investigation: {StagingPath}", zipPath);
-                        // Delete the bad copy
-                        if (File.Exists(filePathManger.ArchiveFilePath))
-                        {
-                            File.Delete(filePathManger.ArchiveFilePath);
-                            _logger.LogWarning("Deleted corrupted copy from destination.");
-                        }
-
-                        // Record failed completion
-                        var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                        _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
-                    }
+                    _logger.LogError("Zip file was not created at: {Path}", zipPath);
+                    var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+                    _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
                 }
-            }
-            else
-            {
-                _logger.LogError("Zip file was not created at: {Path}", zipPath);
-                var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
-            }
             }
             finally
             {
@@ -376,14 +389,17 @@ namespace ZippingWorker_Service
             }
         }
 
-        private async Task DeleteInputFilesAsync(List<ZipFileEntry> files, CancellationToken stoppingToken)
+        private async Task DeleteInputFilesAsync(ZipRequest request, CancellationToken stoppingToken)
         {
+            List<ZipFileEntry> files = request.Files;
+
             _logger.LogInformation("Starting deletion of {Count} input files...", files.Count);
 
             int deletedCount = 0;
             int failedCount = 0;
             var deletedFiles = new List<string>();
             var failedFiles = new List<(string Path, string Error)>();
+            HashSet<DirectoryInfo> directoriesToDelete = new HashSet<DirectoryInfo>();
 
             foreach (var file in files)
             {
@@ -397,10 +413,21 @@ namespace ZippingWorker_Service
                 {
                     if (File.Exists(file.SourcePath))
                     {
-                        File.Delete(file.SourcePath);
-                        deletedFiles.Add(file.SourcePath);
-                        deletedCount++;
-                        _logger.LogDebug("Deleted input file: {SourcePath}", file.SourcePath);
+                        directoriesToDelete.Add(new DirectoryInfo(Path.GetDirectoryName(file.SourcePath)!));
+                        if (request.DeleteInputFiles == DeleteEnumType.recyclebin)
+                        {
+                            FileSystem.DeleteFile(file.SourcePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                            deletedFiles.Add(file.SourcePath);
+                            deletedCount++;
+                            _logger.LogDebug("Sent input file to recycle bin: {SourcePath}", file.SourcePath);
+                        }
+                        else if (request.DeleteInputFiles == DeleteEnumType.delete)
+                        {
+                            File.Delete(file.SourcePath);
+                            deletedFiles.Add(file.SourcePath);
+                            deletedCount++;
+                            _logger.LogDebug("Deleted input file: {SourcePath}", file.SourcePath);
+                        }
                     }
                     else
                     {
@@ -423,6 +450,38 @@ namespace ZippingWorker_Service
 
             _logger.LogInformation("Input file deletion completed: {DeletedCount} deleted, {FailedCount} failed", 
                 deletedCount, failedCount);
+
+            int dirDeletedCount = 0;
+            int dirFailedCount = 0;
+            _logger.LogInformation("Starting cleanup of {Count} directories...", directoriesToDelete.Count);
+            foreach (var dir in directoriesToDelete)
+            {
+                try
+                {
+                    if (dir.Exists && !dir.EnumerateFileSystemInfos().Any())
+                    {
+                        if (request.DeleteInputFiles == DeleteEnumType.recyclebin)
+                        {
+                            FileSystem.DeleteDirectory(dir.FullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                            dirDeletedCount++;
+                            _logger.LogDebug("Sent empty directory to recycle bin: {DirectoryPath}", dir.FullName);
+                        }
+                        else if (request.DeleteInputFiles == DeleteEnumType.delete)
+                        {
+                            dir.Delete();
+                            dirDeletedCount++;
+                            _logger.LogDebug("Deleted empty directory: {DirectoryPath}", dir.FullName);
+                        }
+                        
+                    }
+                }
+                catch (Exception ex)
+                {
+                    dirFailedCount++;
+                    _logger.LogError(ex, "Failed to delete directory: {DirectoryPath}", dir.FullName);
+                }
+            }
+            _logger.LogInformation("Directory cleanup completed: {DeletedCount} deleted, {FailedCount} failed", dirDeletedCount, dirFailedCount);
 
             _metrics.RecordFileDeletion(deletedCount, failedCount);
 
