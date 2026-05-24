@@ -64,6 +64,7 @@ builder.WebHost.UseUrls($"http://*:{config.serviceport}");
 // Register services
 builder.Services.AddSingleton(config);
 builder.Services.AddSingleton<IMetricsService, MetricsService>();
+builder.Services.AddSingleton<IZipStatusService, ZipStatusService>();
 builder.Services.AddSingleton<IZipRequestQueue, ZipRequestQueue>();
 builder.Services.AddSingleton<IArchiverFactory, ArchiverFactory>();
 builder.Services.AddSingleton<IZipValidationService, ZipValidationService>();

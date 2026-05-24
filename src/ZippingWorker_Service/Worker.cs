@@ -16,6 +16,7 @@ namespace ZippingWorker_Service
         private readonly IArchiverFactory _archiverFactory;
         private readonly IZipValidationService _validationService;
         private readonly IMetricsService _metrics;
+        private readonly IZipStatusService _statusService;
         private readonly ZippingWorker_ServiceConfigurationType _config;
 
         public Worker(
@@ -24,6 +25,7 @@ namespace ZippingWorker_Service
             IArchiverFactory archiverFactory,
             IZipValidationService validationService,
             IMetricsService metrics,
+            IZipStatusService statusService,
             ZippingWorker_ServiceConfigurationType config)
         {
             _logger = logger;
@@ -31,6 +33,7 @@ namespace ZippingWorker_Service
             _archiverFactory = archiverFactory;
             _validationService = validationService;
             _metrics = metrics;
+            _statusService = statusService;
             _config = config;
         }
 
@@ -63,12 +66,21 @@ namespace ZippingWorker_Service
             var startTime = DateTime.UtcNow;
             _metrics.RecordZipRequestStarted();
 
+            // Mark the request as started
+            _statusService.MarkStarted(request.RequestId);
+
+            bool wasSuccessful = false;
+            bool wasValidated = false;
+            bool wasInputDeleted = false;
+            string finalArchivePath = request.OutputArchivePath;
+            long archiveSize = 0;
+
             try
             {
                 // Use configuration snapshot from the request
                 var config = request.Configuration;
 
-                _logger.LogInformation("Processing zip request for output: {OutputPath}", request.OutputArchivePath);
+                _logger.LogInformation("Processing zip request {RequestId} for output: {OutputPath}", request.RequestId, request.OutputArchivePath);
 
                 // Calculate hashes for files that don't have them (if validation is enabled)
                 if (request.ValidateZipping == ValidateEnumType.extract)
@@ -216,6 +228,7 @@ namespace ZippingWorker_Service
                         valRslt.FinishTime = DateTime.UtcNow;
                         valRslt.Success = validationResult.IsValid;
                         _metrics.RecordZipValidation(valRslt.Success, valRslt.Duration);
+                        wasValidated = validationResult.IsValid;
 
                         if (validationResult.IsValid)
                         {
@@ -289,12 +302,18 @@ namespace ZippingWorker_Service
                             if (request.DeleteInputFiles == DeleteEnumType.delete || request.DeleteInputFiles == DeleteEnumType.recyclebin)
                             {
                                 await DeleteInputFilesAsync(request, stoppingToken);
+                                wasInputDeleted = true;
                             }
 
                             // Record successful completion
                             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
                             var zipSize = new FileInfo(filePathManger.ArchiveFilePath).Length;
                             _metrics.RecordZipRequestCompleted(true, duration, zipSize, request.Files.Count);
+
+                            // Mark as successful for status tracking
+                            wasSuccessful = true;
+                            archiveSize = zipSize;
+                            finalArchivePath = filePathManger.ArchiveFilePath;
                         }
                         else
                         {
@@ -321,11 +340,28 @@ namespace ZippingWorker_Service
                     _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing zip request {RequestId}", request.RequestId);
+                var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+                _metrics.RecordZipRequestCompleted(false, duration, 0, request.Files.Count);
+
+                // Mark as failed in status service
+                _statusService.MarkFailed(request.RequestId, ex.Message);
+                throw; // Re-throw to be caught by ExecuteAsync
+            }
             finally
             {
                 // Reset progress gauge when request completes (success or failure)
                 _metrics.ResetZipProgress();
-                _logger.LogInformation("Finished processing request: {Path}", request.OutputArchivePath);
+
+                // Update status service with final state
+                if (wasSuccessful)
+                {
+                    _statusService.MarkCompleted(request.RequestId, finalArchivePath, archiveSize, wasInputDeleted, wasValidated);
+                }
+
+                _logger.LogInformation("Finished processing request {RequestId}: {Path}", request.RequestId, request.OutputArchivePath);
             }
         }
 

@@ -50,7 +50,7 @@ namespace ZippingWorker_Service.Controllers
 
     public class ZipRequestDto
     {
-        public List<FileEntry> Files { get; set; } = [];
+        public List<FileEntry> Files { get; set; } = new List<FileEntry>();
         public string OutputArchivePath { get; set; } = string.Empty;
     }
 

@@ -16,6 +16,7 @@ namespace ZippingWorker_Service.Controllers
         private readonly IZipRequestQueue _zipQueue;
         private readonly IDriveLetterResolver _driveResolver;
         private readonly IMetricsService _metrics;
+        private readonly IZipStatusService _statusService;
         private readonly ILogger<ZipInfoController> _logger;
         private readonly ZippingWorker_ServiceConfigurationType _config;
 
@@ -26,12 +27,14 @@ namespace ZippingWorker_Service.Controllers
             IZipRequestQueue zipQueue, 
             IDriveLetterResolver driveResolver,
             IMetricsService metrics,
+            IZipStatusService statusService,
             ILogger<ZipInfoController> logger,
             ZippingWorker_ServiceConfigurationType config)
         {
             _zipQueue = zipQueue;
             _driveResolver = driveResolver;
             _metrics = metrics;
+            _statusService = statusService;
             _logger = logger;
             _config = config;
 
@@ -211,12 +214,16 @@ namespace ZippingWorker_Service.Controllers
                 Configuration = _config.DeepCopy() // Snapshot of current configuration
             };
 
+            // Register the request with status tracking and assign the ID
+            zipRequest.RequestId = _statusService.RegisterRequest(zipRequest);
+
             await _zipQueue.EnqueueAsync(zipRequest);
 
             _metrics.RecordZipRequestQueued();
 
             _logger.LogInformation(
-                "Zip request queued: {FileCount} files to {OutputPath} with {CompressionLevel} compression",
+                "Zip request queued: RequestId={RequestId}, {FileCount} files to {OutputPath} with {CompressionLevel} compression",
+                zipRequest.RequestId,
                 files.Count,
                 outputPath,
                 zipInfo.zipcompressionlevel);
@@ -224,6 +231,7 @@ namespace ZippingWorker_Service.Controllers
             return Accepted(new
             {
                 Message = "Zip request queued successfully",
+                RequestId = zipRequest.RequestId,
                 OutputPath = outputPath,
                 FileCount = files.Count,
                 CompressionLevel = zipInfo.zipcompressionlevel.ToString(),

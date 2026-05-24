@@ -14,7 +14,7 @@ namespace ZippingWorker_Service.Controllers
         [Produces("text/plain")]
         public IActionResult Ping()
         {
-            return Ok("pong");
+            return Ok("pong-ZippingWorker_Service");
         }
     }
 }

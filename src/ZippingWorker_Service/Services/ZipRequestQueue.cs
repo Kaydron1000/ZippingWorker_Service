@@ -7,6 +7,11 @@ namespace ZippingWorker_Service.Services
 {
     public class ZipRequest
     {
+        /// <summary>
+        /// Unique identifier for tracking this request
+        /// </summary>
+        public string RequestId { get; set; } = string.Empty;
+
         public List<ZipFileEntry> Files { get; set; } = new();
         public string OutputArchivePath { get; set; } = string.Empty;
         public ArchiveCompressionLevel CompressionLevel { get; set; } = ArchiveCompressionLevel.ultra;
