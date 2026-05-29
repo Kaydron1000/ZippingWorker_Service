@@ -41,9 +41,11 @@ namespace ZippingWorker_Service.Services
     public class ZipRequestQueue : IZipRequestQueue
     {
         private readonly Channel<ZipRequest> _channel;
+        private readonly IMetricsService _metricsService;
 
-        public ZipRequestQueue()
+        public ZipRequestQueue(IMetricsService metricsService)
         {
+            _metricsService = metricsService;
             _channel = Channel.CreateUnbounded<ZipRequest>(new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -54,11 +56,14 @@ namespace ZippingWorker_Service.Services
         public async ValueTask EnqueueAsync(ZipRequest request, CancellationToken cancellationToken = default)
         {
             await _channel.Writer.WriteAsync(request, cancellationToken);
+            _metricsService.SetQueueDepth(_channel.Reader.Count);
         }
 
         public async ValueTask<ZipRequest> DequeueAsync(CancellationToken cancellationToken = default)
         {
-            return await _channel.Reader.ReadAsync(cancellationToken);
+            var retitm = await _channel.Reader.ReadAsync(cancellationToken);
+            _metricsService.SetQueueDepth(_channel.Reader.Count);
+            return retitm;
         }
     }
 }
