@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<xs:schema id="ZipInfoRequest"
+	targetNamespace="http://tempuri.org/ZipInfoRequest.xsd"
+	elementFormDefault="unqualified"
+	xmlns="http://tempuri.org/ZipInfoRequest.xsd"
+	xmlns:mstns="http://tempuri.org/ZipInfoRequest.xsd"
+	xmlns:zipinfo="http://tempuri.org/ZipInfoSchema.xsd"
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+>
+	<xs:import namespace="http://tempuri.org/ZipInfoSchema.xsd" schemaLocation="ZipInfoSchema.xsd"/>
+	
+	<xs:complexType name="ZipInfoRequestType">
+		<xs:all>
+			<xs:element ref="zipinfo:zippingfiles" minOccurs="1" maxOccurs="1"/>
+		</xs:all>
+		<xs:attribute name="id" type="xs:string" use="required"/>
+	</xs:complexType>
+
+	<xs:element name="zipinforequest" type="ZipInfoRequestType"/>
+</xs:schema>

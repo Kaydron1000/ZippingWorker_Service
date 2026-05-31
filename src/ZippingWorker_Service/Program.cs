@@ -69,6 +69,8 @@ builder.Services.AddSingleton<IZipRequestQueue, ZipRequestQueue>();
 builder.Services.AddSingleton<IArchiverFactory, ArchiverFactory>();
 builder.Services.AddSingleton<IZipValidationService, ZipValidationService>();
 builder.Services.AddSingleton<IDriveLetterResolver, DriveLetterResolver>();
+builder.Services.AddSingleton<IRequestPersistenceService, RequestPersistenceService>();
+builder.Services.AddSingleton<IRequestHistoryService, RequestHistoryService>();
 builder.Services.AddHostedService<Worker>();
 
 var app = builder.Build();

@@ -91,15 +91,15 @@ namespace ZippingWorker_Service.Controllers
         public IActionResult GetAllRequests()
         {
             var all = _statusService.GetAllRequests();
-            var grouped = all.GroupBy(r => r.Status);
+            var grouped = all.GroupBy(r => r.Request.Status);
 
             return Ok(new
             {
                 total = all.Count(),
-                queued = grouped.FirstOrDefault(g => g.Key == ZipRequestStatusEnum.Queued)?.Count() ?? 0,
-                inProgress = grouped.FirstOrDefault(g => g.Key == ZipRequestStatusEnum.InProgress)?.Count() ?? 0,
-                completed = grouped.FirstOrDefault(g => g.Key == ZipRequestStatusEnum.Completed)?.Count() ?? 0,
-                failed = grouped.FirstOrDefault(g => g.Key == ZipRequestStatusEnum.Failed)?.Count() ?? 0,
+                queued = grouped.FirstOrDefault(g => g.Key == Model.RequestStatus.Queued)?.Count() ?? 0,
+                inProgress = grouped.FirstOrDefault(g => g.Key == Model.RequestStatus.Processing)?.Count() ?? 0,
+                completed = grouped.FirstOrDefault(g => g.Key == Model.RequestStatus.Completed)?.Count() ?? 0,
+                failed = grouped.FirstOrDefault(g => g.Key == Model.RequestStatus.Failed)?.Count() ?? 0,
                 requests = all
             });
         }
@@ -112,10 +112,10 @@ namespace ZippingWorker_Service.Controllers
         public IActionResult GetSummary()
         {
             var all = _statusService.GetAllRequests().ToList();
-            var queued = all.Count(r => r.Status == ZipRequestStatusEnum.Queued);
-            var inProgress = all.Count(r => r.Status == ZipRequestStatusEnum.InProgress);
-            var completed = all.Count(r => r.Status == ZipRequestStatusEnum.Completed);
-            var failed = all.Count(r => r.Status == ZipRequestStatusEnum.Failed);
+            var queued = all.Count(r => r.Request.Status == Model.RequestStatus.Queued);
+            var inProgress = all.Count(r => r.Request.Status == Model.RequestStatus.Processing);
+            var completed = all.Count(r => r.Request.Status == Model.RequestStatus.Completed);
+            var failed = all.Count(r => r.Request.Status == Model.RequestStatus.Failed);
 
             var currentRequest = _statusService.GetInProgressRequest();
 
@@ -131,12 +131,12 @@ namespace ZippingWorker_Service.Controllers
                 },
                 currentRequest = currentRequest != null ? new
                 {
-                    currentRequest.RequestId,
-                    currentRequest.StartedTime,
-                    currentRequest.ArchiveFileLocation,
-                    currentRequest.FileCount,
-                    elapsedSeconds = currentRequest.StartedTime.HasValue 
-                        ? (DateTime.UtcNow - currentRequest.StartedTime.Value).TotalSeconds 
+                    RequestId = currentRequest.Request.Id,
+                    StartedTime = currentRequest.Request.Started,
+                    ArchiveFileLocation = currentRequest.Request.ArchiveLocation,
+                    FileCount = currentRequest.Request.FileCount,
+                    elapsedSeconds = currentRequest.Request.Started.HasValue 
+                        ? (DateTime.UtcNow - currentRequest.Request.Started.Value).TotalSeconds 
                         : 0
                 } : null
             });

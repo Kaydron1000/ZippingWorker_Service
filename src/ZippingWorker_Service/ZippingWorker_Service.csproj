@@ -18,11 +18,15 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="NJsonSchema" Version="11.6.1" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="config.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Model\RequestHistorySchema.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Examples\test-api.ps1">
@@ -40,6 +44,6 @@
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="cd &quot;$(ProjectDir)Configuration&quot;&#xD;&#xA;xsd &quot;ZippingWorker_ServiceConfigurationSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Configuration&#xD;&#xA;cd &quot;$(ProjectDir)Model&quot;&#xD;&#xA;xsd &quot;ZipInfoSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Model&#xD;&#xA;" />
+    <Exec Command="cd &quot;$(ProjectDir)Configuration&quot;&#xD;&#xA;xsd &quot;ZippingWorker_ServiceConfigurationSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Configuration&#xD;&#xA;cd &quot;$(ProjectDir)Model&quot;&#xD;&#xA;xsd &quot;ZipInfoSchema.xsd&quot; /c /edb /n:ZippingWorker_Service.Model" />
   </Target>
 </Project>

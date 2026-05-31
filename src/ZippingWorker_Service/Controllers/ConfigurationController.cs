@@ -77,6 +77,8 @@ public class ConfigurationController : ControllerBase
     /// <param name="usestaging">Use staging directory for zip creation (boolean)</param>
     /// <param name="archiver">Archiver type: sevenzip or dotnetzip (string)</param>
     /// <param name="compressionlevel">Compression level: nocompression, fastest, fast, normal, maximum, ultra (string)</param>
+    /// <param name="storerequestsfolder">Directory to store request XML files (string)</param>
+    /// <param name="requesthistory">Path to request history JSON file (string)</param>
     [HttpPut]
     [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -90,7 +92,9 @@ public class ConfigurationController : ControllerBase
         [FromQuery] bool? tempdir_zipstaging_createIfNotExist,
         [FromQuery] bool? usestaging,
         [FromQuery] string? archiver,
-        [FromQuery] string? compressionlevel)
+        [FromQuery] string? compressionlevel,
+        [FromQuery] string? storerequestsfolder,
+        [FromQuery] string? requesthistory)
     {
         try
         {
@@ -184,6 +188,18 @@ public class ConfigurationController : ControllerBase
                     }
                 }
 
+                if (!string.IsNullOrWhiteSpace(storerequestsfolder))
+                {
+                    config.storerequestsfolder = storerequestsfolder;
+                    updates.Add($"storerequestsfolder={storerequestsfolder}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(requesthistory))
+                {
+                    config.requesthistory = requesthistory;
+                    updates.Add($"requesthistory={requesthistory}");
+                }
+
                 if (updates.Count == 0)
                 {
                     return BadRequest(new { Error = "No configuration attributes provided. Specify at least one query parameter to update." });
@@ -229,9 +245,13 @@ public class ConfigurationController : ControllerBase
             UseStaging = config.usestaging,
             Archiver = config.archiver.ToString(),
             CompressionLevel = config.compressionlevel.ToString(),
+            StoreRequestsFolder = config.storerequestsfolder ?? string.Empty,
+            RequestHistory = config.requesthistory ?? string.Empty,
             ResolvedSevenZipExePath = config.ResolvedSevenZipExePath ?? string.Empty,
             ResolvedTempDir_SymLink = config.ResolvedTempDir_SymLink ?? string.Empty,
-            ResolvedTempDir_ZipStaging = config.ResolvedTempDir_ZipStaging ?? string.Empty
+            ResolvedTempDir_ZipStaging = config.ResolvedTempDir_ZipStaging ?? string.Empty,
+            ResolvedStoreRequestsFolder = config.ResolvedStoreRequestsFolder ?? string.Empty,
+            ResolvedRequestHistory = config.ResolvedRequestHistory ?? string.Empty
         };
     }
 
@@ -257,6 +277,8 @@ public class ConfigurationController : ControllerBase
         SetAttribute(root, "usestaging", config.usestaging.ToString().ToLowerInvariant());
         SetAttribute(root, "archiver", config.archiver.ToString());
         SetAttribute(root, "compressionlevel", config.compressionlevel.ToString());
+        SetAttribute(root, "storerequestsfolder", config.storerequestsfolder);
+        SetAttribute(root, "requesthistory", config.requesthistory);
     }
 
     private void SetAttribute(XElement element, string name, string value)
@@ -287,6 +309,8 @@ public class ConfigurationController : ControllerBase
         _config.usestaging = source.usestaging;
         _config.archiver = source.archiver;
         _config.compressionlevel = source.compressionlevel;
+        _config.storerequestsfolder = source.storerequestsfolder;
+        _config.requesthistory = source.requesthistory;
 
         // Copy metadata if present
         if (source.metadatalogging != null)
@@ -307,9 +331,13 @@ public class ConfigurationResponse
     public bool UseStaging { get; set; }
     public string Archiver { get; set; } = string.Empty;
     public string CompressionLevel { get; set; } = string.Empty;
+    public string StoreRequestsFolder { get; set; } = string.Empty;
+    public string RequestHistory { get; set; } = string.Empty;
 
     // Resolved paths (after environment variable expansion)
     public string ResolvedSevenZipExePath { get; set; } = string.Empty;
     public string ResolvedTempDir_SymLink { get; set; } = string.Empty;
     public string ResolvedTempDir_ZipStaging { get; set; } = string.Empty;
+    public string ResolvedStoreRequestsFolder { get; set; } = string.Empty;
+    public string ResolvedRequestHistory { get; set; } = string.Empty;
 }

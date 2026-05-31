@@ -17,6 +17,7 @@ namespace ZippingWorker_Service.Controllers
         private readonly IDriveLetterResolver _driveResolver;
         private readonly IMetricsService _metrics;
         private readonly IZipStatusService _statusService;
+        private readonly IRequestPersistenceService _requestPersistence;
         private readonly ILogger<ZipInfoController> _logger;
         private readonly ZippingWorker_ServiceConfigurationType _config;
 
@@ -28,6 +29,7 @@ namespace ZippingWorker_Service.Controllers
             IDriveLetterResolver driveResolver,
             IMetricsService metrics,
             IZipStatusService statusService,
+            IRequestPersistenceService requestPersistence,
             ILogger<ZipInfoController> logger,
             ZippingWorker_ServiceConfigurationType config)
         {
@@ -35,6 +37,7 @@ namespace ZippingWorker_Service.Controllers
             _driveResolver = driveResolver;
             _metrics = metrics;
             _statusService = statusService;
+            _requestPersistence = requestPersistence;
             _logger = logger;
             _config = config;
 
@@ -139,6 +142,23 @@ namespace ZippingWorker_Service.Controllers
 
         private async Task<IActionResult> ProcessZipInfoAsync(ZipInfoType zipInfo)
         {
+            // Generate unique request ID
+            string requestId = Guid.NewGuid().ToString();
+
+            _logger.LogInformation("Processing zip request with ID: {RequestId}", requestId);
+
+            try
+            {
+                // Save the request XML to disk
+                string savedFilePath = await _requestPersistence.SaveRequestAsync(zipInfo, requestId);
+                _logger.LogInformation("Saved request XML to: {FilePath}", savedFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save request {RequestId} to disk", requestId);
+                // Continue processing even if save fails - this is for persistence/audit purposes
+            }
+
             // Validate input
             if (string.IsNullOrWhiteSpace(zipInfo.zipfilename))
             {
@@ -206,6 +226,7 @@ namespace ZippingWorker_Service.Controllers
 
             var zipRequest = new ZipRequest
             {
+                RequestId = requestId, // Use the generated request ID
                 Files = files,
                 OutputArchivePath = outputPath,
                 CompressionLevel = MapCompressionLevel(zipInfo.zipcompressionlevel),
@@ -214,8 +235,8 @@ namespace ZippingWorker_Service.Controllers
                 Configuration = _config.DeepCopy() // Snapshot of current configuration
             };
 
-            // Register the request with status tracking and assign the ID
-            zipRequest.RequestId = _statusService.RegisterRequest(zipRequest);
+            // Register the request with status tracking using our existing ID
+            _statusService.RegisterRequest(zipRequest, requestId);
 
             await _zipQueue.EnqueueAsync(zipRequest);
 

@@ -56,13 +56,13 @@ namespace ZippingWorker_Service.Services
         public async ValueTask EnqueueAsync(ZipRequest request, CancellationToken cancellationToken = default)
         {
             await _channel.Writer.WriteAsync(request, cancellationToken);
-            _metricsService.SetQueueDepth(_channel.Reader.Count);
+            _metricsService.IncrementQueueDepth();
         }
 
         public async ValueTask<ZipRequest> DequeueAsync(CancellationToken cancellationToken = default)
         {
             var retitm = await _channel.Reader.ReadAsync(cancellationToken);
-            _metricsService.SetQueueDepth(_channel.Reader.Count);
+            _metricsService.DecrementQueueDepth();
             return retitm;
         }
     }

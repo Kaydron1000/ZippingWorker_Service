@@ -188,57 +188,32 @@ public class MetricsServiceTests
     #region Queue Depth Tests
 
     [Fact]
-    public void SetQueueDepth_ShouldAcceptValidDepth()
+    public void IncrementQueueDepth_ShouldNotThrow()
     {
-        // Arrange
-        int depth = 5;
-
-        // Act
-        _metricsService.SetQueueDepth(depth);
-
-        // Assert
+        // Act & Assert
+        _metricsService.IncrementQueueDepth();
         // Method should complete without throwing
     }
 
     [Fact]
-    public void GetQueueDepth_ShouldReturnSetValue()
+    public void DecrementQueueDepth_ShouldNotThrow()
     {
-        // Arrange
-        int expectedDepth = 7;
-        _metricsService.SetQueueDepth(expectedDepth);
-
-        // Act
-        int actualDepth = _metricsService.GetQueueDepth();
-
-        // Assert
-        actualDepth.Should().Be(expectedDepth);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(10)]
-    [InlineData(100)]
-    public void SetQueueDepth_ShouldAcceptVariousDepths(int depth)
-    {
-        // Act
-        _metricsService.SetQueueDepth(depth);
-        int retrievedDepth = _metricsService.GetQueueDepth();
-
-        // Assert
-        retrievedDepth.Should().Be(depth);
+        // Act & Assert
+        _metricsService.DecrementQueueDepth();
+        // Method should complete without throwing
     }
 
     [Fact]
-    public void QueueDepth_ShouldPersistAcrossMultipleUpdates()
+    public void QueueDepth_IncrementAndDecrement_ShouldWork()
     {
-        // Arrange & Act
-        _metricsService.SetQueueDepth(5);
-        _metricsService.SetQueueDepth(10);
-        _metricsService.SetQueueDepth(3);
+        // Act
+        _metricsService.IncrementQueueDepth();
+        _metricsService.IncrementQueueDepth();
+        _metricsService.IncrementQueueDepth();
+        _metricsService.DecrementQueueDepth();
 
         // Assert
-        _metricsService.GetQueueDepth().Should().Be(3);
+        // Should execute without errors - gauge internally tracks the value
     }
 
     #endregion
@@ -407,10 +382,10 @@ public class MetricsServiceTests
         // Act
         _metricsService.RecordZipRequested();
         _metricsService.RecordZipRequestQueued();
-        _metricsService.SetQueueDepth(1);
+        _metricsService.IncrementQueueDepth();
 
         _metricsService.RecordZipRequestStarted();
-        _metricsService.SetQueueDepth(0);
+        _metricsService.DecrementQueueDepth();
 
         _metricsService.RecordZipMetadata("archiver", "sevenzip");
         _metricsService.RecordZipMetadata("compression", "ultra");
@@ -422,7 +397,6 @@ public class MetricsServiceTests
 
         // Assert
         // Complete workflow should execute without errors
-        _metricsService.GetQueueDepth().Should().Be(0);
     }
 
     [Fact]
@@ -433,16 +407,15 @@ public class MetricsServiceTests
         // Act
         _metricsService.RecordZipRequested();
         _metricsService.RecordZipRequestQueued();
-        _metricsService.SetQueueDepth(1);
+        _metricsService.IncrementQueueDepth();
 
         _metricsService.RecordZipRequestStarted();
-        _metricsService.SetQueueDepth(0);
+        _metricsService.DecrementQueueDepth();
 
         _metricsService.RecordZipRequestCompleted(false, 5.0, 0, 0);
 
         // Assert
         // Failed workflow should record appropriately
-        _metricsService.GetQueueDepth().Should().Be(0);
     }
 
     [Fact]

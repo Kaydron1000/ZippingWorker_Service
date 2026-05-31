@@ -14,8 +14,8 @@ namespace ZippingWorker_Service.Services
         void RecordFileDeletion(int successCount, int failedCount);
         void RecordDirectoryDeletion(int successCount, int failedCount);
         void RecordCopyVerification(bool success);
-        int GetQueueDepth();
-        void SetQueueDepth(int depth);
+        void IncrementQueueDepth();
+        void DecrementQueueDepth();
         void UpdateZipProgress(int current, int total);
         void ResetZipProgress();
     }
@@ -194,14 +194,14 @@ namespace ZippingWorker_Service.Services
             CopyVerifications.WithLabels(success ? "success" : "failed").Inc();
         }
 
-        public int GetQueueDepth()
+        public void IncrementQueueDepth()
         {
-            return (int)QueueDepth.Value;
+            QueueDepth.Inc();
         }
 
-        public void SetQueueDepth(int depth)
+        public void DecrementQueueDepth()
         {
-            QueueDepth.Set(depth);
+            QueueDepth.Dec();
         }
 
         public void UpdateZipProgress(int current, int total)

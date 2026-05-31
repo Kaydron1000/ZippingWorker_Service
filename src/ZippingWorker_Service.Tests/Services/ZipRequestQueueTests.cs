@@ -1,7 +1,9 @@
 using FluentAssertions;
+using Moq;
 using Xunit;
 using ZippingWorker_Service.Services;
 using ZippingWorker_Service.Zipping;
+using ZippingWorker_Service.Model;
 
 namespace ZippingWorker_Service.Tests.Services;
 
@@ -11,7 +13,8 @@ public class ZipRequestQueueTests
     public async Task EnqueueAsync_ShouldAddRequestToQueue()
     {
         // Arrange
-        var queue = new ZipRequestQueue();
+        var mockMetrics = new Mock<IMetricsService>();
+        var queue = new ZipRequestQueue(mockMetrics.Object);
         var request = new ZipRequest
         {
             OutputArchivePath = @"C:\output\test.zip",
@@ -20,7 +23,7 @@ public class ZipRequestQueueTests
                 new ZipFileEntry { SourcePath = @"C:\input\file1.txt", ArchivePath = "file1.txt" }
             },
             CompressionLevel = ArchiveCompressionLevel.normal,
-            DeleteInputFiles = Model.DeleteEnumType.none
+            DeleteInputFiles = DeleteEnumType.none
         };
 
         // Act
@@ -34,7 +37,8 @@ public class ZipRequestQueueTests
     public async Task DequeueAsync_ShouldReturnEnqueuedRequest()
     {
         // Arrange
-        var queue = new ZipRequestQueue();
+        var mockMetrics = new Mock<IMetricsService>();
+        var queue = new ZipRequestQueue(mockMetrics.Object);
         var request = new ZipRequest
         {
             OutputArchivePath = @"C:\output\test.zip",
@@ -43,7 +47,7 @@ public class ZipRequestQueueTests
                 new ZipFileEntry { SourcePath = @"C:\input\file1.txt", ArchivePath = "file1.txt" }
             },
             CompressionLevel = ArchiveCompressionLevel.normal,
-            DeleteInputFiles = Model.DeleteEnumType.none
+            DeleteInputFiles = DeleteEnumType.none
         };
 
         // Act
@@ -61,7 +65,8 @@ public class ZipRequestQueueTests
     public async Task DequeueAsync_WithMultipleItems_ShouldReturnInFIFOOrder()
     {
         // Arrange
-        var queue = new ZipRequestQueue();
+        var mockMetrics = new Mock<IMetricsService>();
+        var queue = new ZipRequestQueue(mockMetrics.Object);
         var request1 = new ZipRequest { OutputArchivePath = @"C:\output\first.zip", Files = new List<ZipFileEntry>(), CompressionLevel = ArchiveCompressionLevel.normal };
         var request2 = new ZipRequest { OutputArchivePath = @"C:\output\second.zip", Files = new List<ZipFileEntry>(), CompressionLevel = ArchiveCompressionLevel.normal };
         var request3 = new ZipRequest { OutputArchivePath = @"C:\output\third.zip", Files = new List<ZipFileEntry>(), CompressionLevel = ArchiveCompressionLevel.normal };
@@ -92,8 +97,8 @@ public class ZipRequestQueueTests
         request.Files.Should().BeEmpty();
         request.OutputArchivePath.Should().Be(string.Empty);
         request.CompressionLevel.Should().Be(ArchiveCompressionLevel.ultra);
-        request.ValidateZipping.Should().Be(Model.ValidateEnumType.extract);
-        request.DeleteInputFiles.Should().Be(Model.DeleteEnumType.none);
+        request.ValidateZipping.Should().Be(ValidateEnumType.extract);
+        request.DeleteInputFiles.Should().Be(DeleteEnumType.none);
     }
 
     [Fact]

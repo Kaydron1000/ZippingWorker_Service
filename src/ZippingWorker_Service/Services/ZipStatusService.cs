@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using ZippingWorker_Service.Zipping;
+using ZippingWorker_Service.Model;
 
 namespace ZippingWorker_Service.Services
 {
@@ -9,34 +10,14 @@ namespace ZippingWorker_Service.Services
     public class ZipRequestStatus
     {
         /// <summary>
-        /// Unique identifier for this request
+        /// Core request history item containing id, status, timestamps, compression level, archive location, file count, and priority
         /// </summary>
-        public string RequestId { get; set; } = string.Empty;
+        public required RequestHistoryItem Request { get; set; }
 
         /// <summary>
-        /// Time when the request was received
-        /// </summary>
-        public DateTime RequestTime { get; set; }
-
-        /// <summary>
-        /// Time when processing started (null if not started yet)
-        /// </summary>
-        public DateTime? StartedTime { get; set; }
-
-        /// <summary>
-        /// Time when processing finished (null if not finished yet)
-        /// </summary>
-        public DateTime? FinishedTime { get; set; }
-
-        /// <summary>
-        /// Compression level used for the archive
+        /// Compression level enum (for internal use)
         /// </summary>
         public ArchiveCompressionLevel CompressionLevel { get; set; }
-
-        /// <summary>
-        /// Final location of the created archive file
-        /// </summary>
-        public string ArchiveFileLocation { get; set; } = string.Empty;
 
         /// <summary>
         /// Whether input files were deleted after archiving
@@ -49,19 +30,9 @@ namespace ZippingWorker_Service.Services
         public bool ZippingValidated { get; set; }
 
         /// <summary>
-        /// Current status of the request
-        /// </summary>
-        public ZipRequestStatusEnum Status { get; set; } = ZipRequestStatusEnum.Queued;
-
-        /// <summary>
         /// Error message if the request failed
         /// </summary>
         public string? ErrorMessage { get; set; }
-
-        /// <summary>
-        /// Number of files in the archive
-        /// </summary>
-        public int FileCount { get; set; }
 
         /// <summary>
         /// Size of the final archive in bytes (0 if not yet created)
@@ -85,7 +56,10 @@ namespace ZippingWorker_Service.Services
         /// <summary>
         /// Register a new request that has been queued
         /// </summary>
-        string RegisterRequest(ZipRequest request);
+        /// <param name="request">The zip request to register</param>
+        /// <param name="requestId">Optional request ID. If not provided, one will be generated.</param>
+        /// <returns>The request ID (either the provided one or generated)</returns>
+        string RegisterRequest(ZipRequest request, string? requestId = null);
 
         /// <summary>
         /// Mark a request as started
@@ -136,27 +110,69 @@ namespace ZippingWorker_Service.Services
     public class ZipStatusService : IZipStatusService
     {
         private readonly ConcurrentDictionary<string, ZipRequestStatus> _statuses = new();
+        private readonly IRequestHistoryService _historyService;
         private readonly ILogger<ZipStatusService> _logger;
 
-        public ZipStatusService(ILogger<ZipStatusService> logger)
+        public ZipStatusService(
+            IRequestHistoryService historyService,
+            ILogger<ZipStatusService> logger)
         {
+            _historyService = historyService;
             _logger = logger;
         }
 
-        public string RegisterRequest(ZipRequest request)
+        private static RequestStatus MapToRequestStatus(ZipRequestStatusEnum status)
         {
-            var requestId = Extensions.GenerateShortId();
+            return status switch
+            {
+                ZipRequestStatusEnum.Queued => RequestStatus.Queued,
+                ZipRequestStatusEnum.InProgress => RequestStatus.Processing,
+                ZipRequestStatusEnum.Completed => RequestStatus.Completed,
+                ZipRequestStatusEnum.Failed => RequestStatus.Failed,
+                _ => RequestStatus.Pending
+            };
+        }
+
+        public string RegisterRequest(ZipRequest request, string? requestId = null)
+        {
+            // Use provided ID or generate a new one
+            if (string.IsNullOrWhiteSpace(requestId))
+            {
+                requestId = Extensions.GenerateShortId();
+            }
+
+            var requestHistoryItem = new RequestHistoryItem
+            {
+                Id = requestId,
+                Status = RequestStatus.Queued,
+                Requested = DateTime.UtcNow,
+                CompressionLevel = request.CompressionLevel.ToString(),
+                ArchiveLocation = request.OutputArchivePath,
+                FileCount = request.Files.Count,
+                Priority = 0 // Default priority, can be set later
+            };
+
             var status = new ZipRequestStatus
             {
-                RequestId = requestId,
-                RequestTime = DateTime.UtcNow,
-                CompressionLevel = request.CompressionLevel,
-                ArchiveFileLocation = request.OutputArchivePath,
-                Status = ZipRequestStatusEnum.Queued,
-                FileCount = request.Files.Count
+                Request = requestHistoryItem,
+                CompressionLevel = request.CompressionLevel
             };
 
             _statuses[requestId] = status;
+
+            // Persist to history file immediately
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await _historyService.AddRequestAsync(requestHistoryItem);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to add request {RequestId} to history file", requestId);
+                }
+            });
+
             _logger.LogInformation("Registered request {RequestId} with {FileCount} files", requestId, request.Files.Count);
             return requestId;
         }
@@ -165,8 +181,22 @@ namespace ZippingWorker_Service.Services
         {
             if (_statuses.TryGetValue(requestId, out var status))
             {
-                status.StartedTime = DateTime.UtcNow;
-                status.Status = ZipRequestStatusEnum.InProgress;
+                status.Request.Started = DateTime.UtcNow;
+                status.Request.Status = RequestStatus.Processing;
+
+                // Update in history file
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _historyService.UpdateRequestAsync(status.Request);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to update started status for request {RequestId} in history file", requestId);
+                    }
+                });
+
                 _logger.LogInformation("Request {RequestId} started processing", requestId);
             }
         }
@@ -175,15 +205,32 @@ namespace ZippingWorker_Service.Services
         {
             if (_statuses.TryGetValue(requestId, out var status))
             {
-                status.FinishedTime = DateTime.UtcNow;
-                status.Status = ZipRequestStatusEnum.Completed;
-                status.ArchiveFileLocation = archiveLocation;
+                status.Request.Finish = DateTime.UtcNow;
+                status.Request.Status = RequestStatus.Completed;
+                status.Request.ArchiveLocation = archiveLocation;
                 status.ArchiveSizeBytes = archiveSizeBytes;
                 status.DeletedInput = deletedInput;
                 status.ZippingValidated = validated;
 
-                var duration = status.FinishedTime.Value - status.StartedTime.GetValueOrDefault(status.RequestTime);
+                var duration = status.Request.Finish.Value - status.Request.Started.GetValueOrDefault(status.Request.Requested);
                 _logger.LogInformation("Request {RequestId} completed in {Duration:F2}s", requestId, duration.TotalSeconds);
+
+                // Update in history file and remove from memory
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _historyService.UpdateRequestAsync(status.Request);
+
+                        // Remove from in-memory dictionary to free memory
+                        _statuses.TryRemove(requestId, out _);
+                        _logger.LogDebug("Removed completed request {RequestId} from memory", requestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to update completed status for request {RequestId} in history file", requestId);
+                    }
+                });
             }
         }
 
@@ -191,65 +238,180 @@ namespace ZippingWorker_Service.Services
         {
             if (_statuses.TryGetValue(requestId, out var status))
             {
-                status.FinishedTime = DateTime.UtcNow;
-                status.Status = ZipRequestStatusEnum.Failed;
+                status.Request.Finish = DateTime.UtcNow;
+                status.Request.Status = RequestStatus.Failed;
                 status.ErrorMessage = errorMessage;
+
                 _logger.LogWarning("Request {RequestId} failed: {Error}", requestId, errorMessage);
+
+                // Update in history file and remove from memory
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _historyService.UpdateRequestAsync(status.Request);
+
+                        // Remove from in-memory dictionary to free memory
+                        _statuses.TryRemove(requestId, out _);
+                        _logger.LogDebug("Removed failed request {RequestId} from memory", requestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to update failed status for request {RequestId} in history file", requestId);
+                    }
+                });
             }
         }
 
         public ZipRequestStatus? GetStatus(string requestId)
         {
-            _statuses.TryGetValue(requestId, out var status);
-            return status;
+            // First check in-memory
+            if (_statuses.TryGetValue(requestId, out var status))
+            {
+                return status;
+            }
+
+            // If not in memory, check history file (for completed/failed requests)
+            try
+            {
+                var historyItem = _historyService.GetRequestAsync(requestId).GetAwaiter().GetResult();
+                if (historyItem != null)
+                {
+                    // Reconstruct ZipRequestStatus from history item
+                    return new ZipRequestStatus
+                    {
+                        Request = historyItem,
+                        CompressionLevel = ArchiveCompressionLevel.ultra, // Default, actual value not stored
+                        ErrorMessage = null, // Could add to RequestHistoryItem if needed
+                        ArchiveSizeBytes = 0, // Could add to RequestHistoryItem if needed
+                        DeletedInput = false,
+                        ZippingValidated = false
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve request {RequestId} from history file", requestId);
+            }
+
+            return null;
         }
 
         public IEnumerable<ZipRequestStatus> GetQueuedRequests()
         {
             return _statuses.Values
-                .Where(s => s.Status == ZipRequestStatusEnum.Queued)
-                .OrderBy(s => s.RequestTime);
+                .Where(s => s.Request.Status == RequestStatus.Queued)
+                .OrderBy(s => s.Request.Requested);
         }
 
         public ZipRequestStatus? GetInProgressRequest()
         {
             return _statuses.Values
-                .FirstOrDefault(s => s.Status == ZipRequestStatusEnum.InProgress);
+                .FirstOrDefault(s => s.Request.Status == RequestStatus.Processing);
         }
 
         public IEnumerable<ZipRequestStatus> GetCompletedRequests()
         {
-            return _statuses.Values
-                .Where(s => s.Status == ZipRequestStatusEnum.Completed || s.Status == ZipRequestStatusEnum.Failed)
-                .OrderByDescending(s => s.FinishedTime);
+            // In-memory completed/failed should be minimal since they're removed on completion
+            // Read from history file for completed requests
+            try
+            {
+                var historyItems = _historyService.GetAllRequestsAsync().GetAwaiter().GetResult();
+                var completed = historyItems
+                    .Where(h => h.Status == RequestStatus.Completed || h.Status == RequestStatus.Failed)
+                    .Select(h => new ZipRequestStatus
+                    {
+                        Request = h,
+                        CompressionLevel = ArchiveCompressionLevel.ultra,
+                        ErrorMessage = null,
+                        ArchiveSizeBytes = 0,
+                        DeletedInput = false,
+                        ZippingValidated = false
+                    })
+                    .OrderByDescending(s => s.Request.Finish);
+
+                return completed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve completed requests from history file");
+                return Enumerable.Empty<ZipRequestStatus>();
+            }
         }
 
         public IEnumerable<ZipRequestStatus> GetAllRequests()
         {
-            return _statuses.Values.OrderByDescending(s => s.RequestTime);
+            // Merge in-memory (active requests) with file-based history
+            try
+            {
+                var historyItems = _historyService.GetAllRequestsAsync().GetAwaiter().GetResult();
+                var inMemoryIds = _statuses.Keys.ToHashSet();
+
+                // Get file-based items that aren't in memory
+                var fileBasedStatuses = historyItems
+                    .Where(h => !inMemoryIds.Contains(h.Id))
+                    .Select(h => new ZipRequestStatus
+                    {
+                        Request = h,
+                        CompressionLevel = ArchiveCompressionLevel.ultra,
+                        ErrorMessage = null,
+                        ArchiveSizeBytes = 0,
+                        DeletedInput = false,
+                        ZippingValidated = false
+                    });
+
+                // Combine with in-memory
+                return _statuses.Values
+                    .Concat(fileBasedStatuses)
+                    .OrderByDescending(s => s.Request.Requested);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to merge in-memory and file-based requests");
+                // Fallback to in-memory only
+                return _statuses.Values.OrderByDescending(s => s.Request.Requested);
+            }
         }
 
         public void CleanupOldRequests(TimeSpan olderThan)
         {
+            // Clean up any old requests still in memory (shouldn't be many)
             var cutoffTime = DateTime.UtcNow - olderThan;
-            var oldRequests = _statuses.Values
-                .Where(s => (s.Status == ZipRequestStatusEnum.Completed || s.Status == ZipRequestStatusEnum.Failed)
-                            && s.FinishedTime.HasValue
-                            && s.FinishedTime.Value < cutoffTime)
-                .Select(s => s.RequestId)
+            var oldRequestsInMemory = _statuses.Values
+                .Where(s => (s.Request.Status == RequestStatus.Completed || s.Request.Status == RequestStatus.Failed)
+                            && s.Request.Finish.HasValue
+                            && s.Request.Finish.Value < cutoffTime)
+                .Select(s => s.Request.Id)
                 .ToList();
 
-            foreach (var requestId in oldRequests)
+            foreach (var requestId in oldRequestsInMemory)
             {
                 if (_statuses.TryRemove(requestId, out _))
                 {
-                    _logger.LogDebug("Cleaned up old request {RequestId}", requestId);
+                    _logger.LogDebug("Cleaned up old request {RequestId} from memory", requestId);
                 }
             }
 
-            if (oldRequests.Count > 0)
+            // Clean up old requests from history file
+            Task.Run(async () =>
             {
-                _logger.LogInformation("Cleaned up {Count} old requests", oldRequests.Count);
+                try
+                {
+                    var cleanedCount = await _historyService.CleanupOldRequestsAsync(olderThan);
+                    if (cleanedCount > 0)
+                    {
+                        _logger.LogInformation("Cleaned up {Count} old requests from history file", cleanedCount);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to cleanup old requests from history file");
+                }
+            });
+
+            if (oldRequestsInMemory.Count > 0)
+            {
+                _logger.LogInformation("Cleaned up {Count} old requests from memory", oldRequestsInMemory.Count);
             }
         }
     }

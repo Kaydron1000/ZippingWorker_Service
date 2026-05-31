@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://tempuri.org/RequestHistorySchema.json",
+  "title": "Request History Collection",
+  "description": "Schema for storing a collection of zip request histories",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration purposes",
+      "const": "1.0"
+    },
+    "requests": {
+      "type": "array",
+      "description": "Array of request history records",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the request",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current status of the request",
+            "enum": [
+              "pending",
+              "queued",
+              "processing",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "requested": {
+            "type": "string",
+            "description": "Timestamp when the request was received",
+            "format": "date-time"
+          },
+          "started": {
+            "type": ["string", "null"],
+            "description": "Timestamp when processing started",
+            "format": "date-time"
+          },
+          "finish": {
+            "type": ["string", "null"],
+            "description": "Timestamp when processing finished",
+            "format": "date-time"
+          },
+          "compressionLevel": {
+            "type": ["string", "null"],
+            "description": "Compression level used for the archive"
+          },
+          "archiveLocation": {
+            "type": ["string", "null"],
+            "description": "Final location of the created archive file"
+          },
+          "fileCount": {
+            "type": "integer",
+            "description": "Number of files in the archive",
+            "minimum": 0
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Priority level for processing this request (lower number = higher priority)",
+            "minimum": 0
+          }
+        },
+        "required": ["id", "status", "requested"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["schemaVersion", "requests"],
+  "additionalProperties": false
+}

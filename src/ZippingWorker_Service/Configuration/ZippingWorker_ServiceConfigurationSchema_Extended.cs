@@ -11,6 +11,9 @@ namespace ZippingWorker_Service.Configuration
         private string? _ResolvedSevenZipExePath;
         private string? _ResolvedTempDir_SymLink;
         private string? _ResolvedTempDir_ZipStaging;
+        private string? _ResolvedStoreRequestsFolder;
+        private string? _ResolvedRequestHistory;
+
         [XmlIgnore]
         public string ResolvedTempDir_ZipStaging
         {
@@ -41,6 +44,27 @@ namespace ZippingWorker_Service.Configuration
                 return _ResolvedSevenZipExePath;
             }
         }
+        [XmlIgnore]
+        public string ResolvedStoreRequestsFolder
+        {
+            get
+            {
+                if (_ResolvedStoreRequestsFolder == null)
+                    _ResolvedStoreRequestsFolder = ResolveStoreRequestsFolder();
+                return _ResolvedStoreRequestsFolder;
+            }
+        }
+        [XmlIgnore]
+        public string ResolvedRequestHistory
+        {
+            get
+            {
+                if (_ResolvedRequestHistory == null)
+                    _ResolvedRequestHistory = ResolveRequestHistory();
+                return _ResolvedRequestHistory;
+            }
+        }
+
         private void ZippingWorker_ServiceConfigurationType_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(this.tempdir_symlink)) 
@@ -49,6 +73,10 @@ namespace ZippingWorker_Service.Configuration
                 _ResolvedSevenZipExePath = null;
             else if (e.PropertyName == nameof(this.tempdir_zipstaging))
                 _ResolvedTempDir_ZipStaging = null;
+            else if (e.PropertyName == nameof(this.storerequestsfolder))
+                _ResolvedStoreRequestsFolder = null;
+            else if (e.PropertyName == nameof(this.requesthistory))
+                _ResolvedRequestHistory = null;
         }
 
         private string ResolveTempDir_SymLink()
@@ -96,12 +124,49 @@ namespace ZippingWorker_Service.Configuration
                 return retStrg;
             }
         }
+
+        private string ResolveStoreRequestsFolder()
+        {
+            string appdir = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string retStrg = Environment.ExpandEnvironmentVariables(this.storerequestsfolder).Replace("%APPDIR%", appdir).Replace("%APPPATH%", appdir);
+            if (System.IO.Directory.Exists(retStrg))
+                return retStrg;
+            else // If defined configuration does not work fallback to defaults
+            {
+                Type type = typeof(ZippingWorker_ServiceConfigurationType);
+                System.Reflection.PropertyInfo prop = type.GetProperties().Where(o => o.Name == nameof(ZippingWorker_ServiceConfigurationType.storerequestsfolder)).FirstOrDefault();
+                System.ComponentModel.DefaultValueAttribute att = (System.ComponentModel.DefaultValueAttribute)prop.GetCustomAttribute(typeof(System.ComponentModel.DefaultValueAttribute));
+                retStrg = Environment.ExpandEnvironmentVariables(att.Value.ToString()).Replace("%APPDIR%", appdir).Replace("%APPPATH%", appdir);
+                return retStrg;
+            }
+        }
+
+        private string ResolveRequestHistory()
+        {
+            string appdir = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string retStrg = Environment.ExpandEnvironmentVariables(this.requesthistory).Replace("%APPDIR%", appdir).Replace("%APPPATH%", appdir);
+            // For requesthistory, it's a file path, not a directory
+            string directory = System.IO.Path.GetDirectoryName(retStrg);
+            if (!string.IsNullOrEmpty(directory) && System.IO.Directory.Exists(directory))
+                return retStrg;
+            else // If defined configuration does not work fallback to defaults
+            {
+                Type type = typeof(ZippingWorker_ServiceConfigurationType);
+                System.Reflection.PropertyInfo prop = type.GetProperties().Where(o => o.Name == nameof(ZippingWorker_ServiceConfigurationType.requesthistory)).FirstOrDefault();
+                System.ComponentModel.DefaultValueAttribute att = (System.ComponentModel.DefaultValueAttribute)prop.GetCustomAttribute(typeof(System.ComponentModel.DefaultValueAttribute));
+                retStrg = Environment.ExpandEnvironmentVariables(att.Value.ToString()).Replace("%APPDIR%", appdir).Replace("%APPPATH%", appdir);
+                return retStrg;
+            }
+        }
+
         [OnDeserialized]
         public void PostDeserializer()
         {
             this.tempdir_symlink = this.tempdir_symlink.Trim();
             this.tempdir_zipstaging = this.tempdir_zipstaging.Trim();
             this.sevenzipexepath = this.sevenzipexepath.Trim();
+            this.storerequestsfolder = this.storerequestsfolder.Trim();
+            this.requesthistory = this.requesthistory.Trim();
             this.PropertyChanged += ZippingWorker_ServiceConfigurationType_PropertyChanged;
         }
         public void PostLoad(ILogger<ConfigurationData> logger)
@@ -153,7 +218,9 @@ namespace ZippingWorker_Service.Configuration
                 tempdir_zipstaging_createIfNotExist = this.tempdir_zipstaging_createIfNotExist,
                 usestaging = this.usestaging,
                 archiver = this.archiver,
-                compressionlevel = this.compressionlevel
+                compressionlevel = this.compressionlevel,
+                storerequestsfolder = this.storerequestsfolder,
+                requesthistory = this.requesthistory
             };
 
             // Copy metadata if present

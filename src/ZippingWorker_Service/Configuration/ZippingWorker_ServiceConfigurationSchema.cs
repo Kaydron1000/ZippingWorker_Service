@@ -44,6 +44,18 @@ namespace ZippingWorker_Service.Configuration {
         
         private CompressionLevelEnumType compressionlevelField;
         
+        private string storerequestsfolderField;
+        
+        private string requesthistoryField;
+        
+        private bool validateonrequest_directorycheckField;
+        
+        private bool validateonrequest_filecheckField;
+        
+        private int filecheck_maxfilestocheckexistenceField;
+        
+        private int filecheck_sampleeverynthfileField;
+        
         public ZippingWorker_ServiceConfigurationType() {
             this.serviceportField = 5000;
             this.sevenzipexepathField = "7z.exe";
@@ -54,6 +66,12 @@ namespace ZippingWorker_Service.Configuration {
             this.usestagingField = true;
             this.archiverField = ArchiverEnumType.sevenzip;
             this.compressionlevelField = CompressionLevelEnumType.ultra;
+            this.storerequestsfolderField = "%APPPATH%\\requests";
+            this.requesthistoryField = "requesthistoryqueue.json";
+            this.validateonrequest_directorycheckField = true;
+            this.validateonrequest_filecheckField = true;
+            this.filecheck_maxfilestocheckexistenceField = 10;
+            this.filecheck_sampleeverynthfileField = 10;
         }
         
         /// <remarks/>
@@ -183,6 +201,84 @@ namespace ZippingWorker_Service.Configuration {
             set {
                 this.compressionlevelField = value;
                 this.RaisePropertyChanged("compressionlevel");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute("%APPPATH%\\requests")]
+        public string storerequestsfolder {
+            get {
+                return this.storerequestsfolderField;
+            }
+            set {
+                this.storerequestsfolderField = value;
+                this.RaisePropertyChanged("storerequestsfolder");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute("requesthistoryqueue.json")]
+        public string requesthistory {
+            get {
+                return this.requesthistoryField;
+            }
+            set {
+                this.requesthistoryField = value;
+                this.RaisePropertyChanged("requesthistory");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(true)]
+        public bool validateonrequest_directorycheck {
+            get {
+                return this.validateonrequest_directorycheckField;
+            }
+            set {
+                this.validateonrequest_directorycheckField = value;
+                this.RaisePropertyChanged("validateonrequest_directorycheck");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(true)]
+        public bool validateonrequest_filecheck {
+            get {
+                return this.validateonrequest_filecheckField;
+            }
+            set {
+                this.validateonrequest_filecheckField = value;
+                this.RaisePropertyChanged("validateonrequest_filecheck");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(10)]
+        public int filecheck_maxfilestocheckexistence {
+            get {
+                return this.filecheck_maxfilestocheckexistenceField;
+            }
+            set {
+                this.filecheck_maxfilestocheckexistenceField = value;
+                this.RaisePropertyChanged("filecheck_maxfilestocheckexistence");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(10)]
+        public int filecheck_sampleeverynthfile {
+            get {
+                return this.filecheck_sampleeverynthfileField;
+            }
+            set {
+                this.filecheck_sampleeverynthfileField = value;
+                this.RaisePropertyChanged("filecheck_sampleeverynthfile");
             }
         }
         

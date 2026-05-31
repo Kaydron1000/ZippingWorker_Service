@@ -17,6 +17,8 @@ namespace ZippingWorker_Service
         private readonly IZipValidationService _validationService;
         private readonly IMetricsService _metrics;
         private readonly IZipStatusService _statusService;
+        private readonly IRequestHistoryService _historyService;
+        private readonly IRequestPersistenceService _requestPersistence;
         private readonly ZippingWorker_ServiceConfigurationType _config;
 
         public Worker(
@@ -26,6 +28,8 @@ namespace ZippingWorker_Service
             IZipValidationService validationService,
             IMetricsService metrics,
             IZipStatusService statusService,
+            IRequestHistoryService historyService,
+            IRequestPersistenceService requestPersistence,
             ZippingWorker_ServiceConfigurationType config)
         {
             _logger = logger;
@@ -34,12 +38,19 @@ namespace ZippingWorker_Service
             _validationService = validationService;
             _metrics = metrics;
             _statusService = statusService;
+            _historyService = historyService;
+            _requestPersistence = requestPersistence;
             _config = config;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Zipping Worker Service started. Waiting for zip requests...");
+            _logger.LogInformation("Zipping Worker Service started. Recovering pending requests...");
+
+            // Recover any queued/processing requests from history file
+            await RecoverPendingRequestsAsync(stoppingToken);
+
+            _logger.LogInformation("Waiting for zip requests...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -348,6 +359,21 @@ namespace ZippingWorker_Service
 
                 // Mark as failed in status service
                 _statusService.MarkFailed(request.RequestId, ex.Message);
+
+                // Cleanup: Delete the request XML file when request fails
+                try
+                {
+                    var deleted = await _requestPersistence.DeleteRequestAsync(request.RequestId);
+                    if (deleted)
+                    {
+                        _logger.LogInformation("Deleted request XML file for failed request {RequestId}", request.RequestId);
+                    }
+                }
+                catch (Exception deleteEx)
+                {
+                    _logger.LogWarning(deleteEx, "Failed to delete request XML file for failed request {RequestId}", request.RequestId);
+                }
+
                 throw; // Re-throw to be caught by ExecuteAsync
             }
             finally
@@ -359,6 +385,20 @@ namespace ZippingWorker_Service
                 if (wasSuccessful)
                 {
                     _statusService.MarkCompleted(request.RequestId, finalArchivePath, archiveSize, wasInputDeleted, wasValidated);
+                }
+
+                // Cleanup: Delete the request XML file after processing completes (success or failure)
+                try
+                {
+                    var deleted = await _requestPersistence.DeleteRequestAsync(request.RequestId);
+                    if (deleted)
+                    {
+                        _logger.LogInformation("Deleted request XML file for completed request {RequestId}", request.RequestId);
+                    }
+                }
+                catch (Exception deleteEx)
+                {
+                    _logger.LogWarning(deleteEx, "Failed to delete request XML file for {RequestId}", request.RequestId);
                 }
 
                 _logger.LogInformation("Finished processing request {RequestId}: {Path}", request.RequestId, request.OutputArchivePath);
@@ -608,6 +648,122 @@ namespace ZippingWorker_Service
             }
         }
 
+
+        /// <summary>
+        /// Recover pending requests from history file on service startup
+        /// </summary>
+        private async Task RecoverPendingRequestsAsync(CancellationToken stoppingToken)
+        {
+            try
+            {
+                var allRequests = await _historyService.GetAllRequestsAsync();
+                var pendingRequests = allRequests
+                    .Where(r => r.Status == RequestStatus.Queued || r.Status == RequestStatus.Processing)
+                    .OrderBy(r => r.Requested)
+                    .ToList();
+
+                if (pendingRequests.Count == 0)
+                {
+                    _logger.LogInformation("No pending requests found to recover");
+                    return;
+                }
+
+                _logger.LogInformation("Found {Count} pending requests to recover", pendingRequests.Count);
+
+                foreach (var historyItem in pendingRequests)
+                {
+                    try
+                    {
+                        // Load the full request XML from disk
+                        var zipInfoRequest = await _requestPersistence.LoadRequestAsync(historyItem.Id);
+                        if (zipInfoRequest == null)
+                        {
+                            _logger.LogWarning("Could not load request XML for {RequestId}, skipping recovery", historyItem.Id);
+
+                            // Mark as failed in history
+                            historyItem.Status = RequestStatus.Failed;
+                            historyItem.Finish = DateTime.UtcNow;
+                            await _historyService.UpdateRequestAsync(historyItem);
+                            continue;
+                        }
+
+                        var zipInfo = zipInfoRequest.zippingfiles;
+
+                        // Reconstruct ZipRequest
+                        // Build output path
+                        string outputPath;
+                        if (string.IsNullOrWhiteSpace(zipInfo.zipfiledirectory))
+                        {
+                            outputPath = Path.Combine(Directory.GetCurrentDirectory(), zipInfo.zipfilename);
+                        }
+                        else
+                        {
+                            outputPath = Path.Combine(zipInfo.zipfiledirectory, zipInfo.zipfilename);
+                        }
+
+                        // Convert files
+                        var files = zipInfo.zipfiles
+                            .Select(f => new ZipFileEntry
+                            {
+                                SourcePath = f.filelocation,
+                                ArchivePath = f.internalziplocation,
+                                Hash = string.IsNullOrWhiteSpace(f.filehash) ? null : f.filehash
+                            })
+                            .ToList();
+
+                        var zipRequest = new ZipRequest
+                        {
+                            RequestId = historyItem.Id,
+                            Files = files,
+                            OutputArchivePath = outputPath,
+                            CompressionLevel = MapCompressionLevel(zipInfo.zipcompressionlevel),
+                            ValidateZipping = zipInfo.validatezipping,
+                            DeleteInputFiles = zipInfo.deleteinputfiles,
+                            Configuration = _config.DeepCopy()
+                        };
+
+                        // Reset to queued if it was processing (since it was interrupted)
+                        if (historyItem.Status == RequestStatus.Processing)
+                        {
+                            historyItem.Status = RequestStatus.Queued;
+                            historyItem.Started = null;
+                            await _historyService.UpdateRequestAsync(historyItem);
+                            _logger.LogInformation("Reset interrupted request {RequestId} to queued", historyItem.Id);
+                        }
+
+                        // Re-register with status service and enqueue
+                        _statusService.RegisterRequest(zipRequest, historyItem.Id);
+                        await _zipQueue.EnqueueAsync(zipRequest, stoppingToken);
+
+                        _logger.LogInformation("Recovered and re-queued request {RequestId}", historyItem.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to recover request {RequestId}", historyItem.Id);
+                    }
+                }
+
+                _logger.LogInformation("Completed recovery of pending requests");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during request recovery");
+            }
+        }
+
+        private static ArchiveCompressionLevel MapCompressionLevel(ZippingWorker_Service.Model.CompressionLevelEnumType level)
+        {
+            return level switch
+            {
+                ZippingWorker_Service.Model.CompressionLevelEnumType.nocompression => ArchiveCompressionLevel.nocompression,
+                ZippingWorker_Service.Model.CompressionLevelEnumType.fastest => ArchiveCompressionLevel.fastest,
+                ZippingWorker_Service.Model.CompressionLevelEnumType.fast => ArchiveCompressionLevel.fast,
+                ZippingWorker_Service.Model.CompressionLevelEnumType.normal => ArchiveCompressionLevel.normal,
+                ZippingWorker_Service.Model.CompressionLevelEnumType.maximum => ArchiveCompressionLevel.maximum,
+                ZippingWorker_Service.Model.CompressionLevelEnumType.ultra => ArchiveCompressionLevel.ultra,
+                _ => ArchiveCompressionLevel.ultra
+            };
+        }
 
     }
     public class FilePathManger

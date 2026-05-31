@@ -19,7 +19,7 @@ public class HealthControllerTests
         // Assert
         result.Should().NotBeNull();
         result!.StatusCode.Should().Be(200);
-        result.Value.Should().Be("pong");
+        result.Value.Should().Be("pong-ZippingWorker_Service");
     }
 
     [Fact]
